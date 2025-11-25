@@ -1,140 +1,163 @@
--- AutomaticPetCreatorAndFollower - Полностью автономный скрипт.
+-- LocalScript, поместить в StarterPlayerScripts
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
-local ServerStorage = game:GetService("ServerStorage")
+local LocalPlayer = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
 
--- !!! 1. КОНФИГУРАЦИЯ ПИТОМЦА !!!
-local PET_NAME = "AutoSpawnedPet" -- Имя, которое будет дано создаваемому питомцу
-local PET_SIZE = 1.5              -- Размер питомца (диаметр шара)
-local PET_COLOR = Color3.fromRGB(255, 192, 203) -- Розовый (Pusheen color)
+-- !!! КОНФИГУРАЦИЯ !!!
+local PET_SCALE = 0.35      -- Во сколько раз уменьшить игрока (0.35 = 35% от оригинала)
+local FOLLOW_OFFSET = Vector3.new(4, -1, 7) -- Позиция питомца относительно камеры/игрока (X, Y, Z)
+local FOLLOW_SPEED = 0.15   -- Скорость/плавность следования (0.1 - плавнее)
 
--- !!! 2. НАСТРОЙКИ СЛЕДОВАНИЯ !!!
-local DISTANCE_OFFSET = 7       -- Расстояние от игрока
-local HEIGHT_OFFSET = 2         -- Высота над игроком
-local FOLLOW_SPEED = 0.2        -- Скорость/плавность следования
-local ATTACH_SIDE = "RightVector" -- Сторона, с которой пупсик будет находиться
-
-local activePets = {}
+local targetPlayer = nil    -- Игрок, который станет питомцем
+local originalScales = {}   -- Для сохранения оригинальных размеров питомца
 
 --------------------------------------------------------------------------------
--- 🧱 ФУНКЦИИ СОЗДАНИЯ МОДЕЛИ
+-- 🟢 ФУНКЦИИ УПРАВЛЕНИЯ
 --------------------------------------------------------------------------------
 
--- Функция создания базовой модели (шар)
-local function createBasicPetModel()
-    local petModel = Instance.new("Model")
-    petModel.Name = PET_NAME
-    
-    local rootPart = Instance.new("Part")
-    rootPart.Name = "RootPart" -- Имя корневой части, по которой будем двигать
-    rootPart.Shape = Enum.PartType.Ball
-    rootPart.Size = Vector3.new(PET_SIZE, PET_SIZE, PET_SIZE)
-    rootPart.BrickColor = BrickColor.new(PET_COLOR)
-    
-    -- Настройки физики для следования
-    rootPart.CanCollide = false
-    rootPart.Massless = true
-    rootPart.Anchored = true
-    
-    rootPart.Parent = petModel
-    
-    local bodyColor = Instance.new("Color3Value")
-    bodyColor.Name = "BodyColor"
-    bodyColor.Value = PET_COLOR
-    bodyColor.Parent = petModel
-    
-    -- Устанавливаем корневую часть
-    petModel:SetPrimaryPartCFrame(rootPart.CFrame)
-    
-    return petModel, rootPart
-end
-
---------------------------------------------------------------------------------
--- 🟢 ФУНКЦИИ УПРАВЛЕНИЯ ПИТОМЦЕМ
---------------------------------------------------------------------------------
-
--- Функция спавна питомца
-local function spawnPet(player)
-    if activePets[player] then
-        return -- Питомец уже есть
-    end
-
-    local petModel, rootPart = createBasicPetModel()
-    
-    -- Размещаем питомца в мире
-    petModel.Parent = workspace
-    
-    -- Сохраняем данные об активном питомце
-    activePets[player] = {
-        Pet = petModel,
-        Root = rootPart
-    }
-    
-    print(player.Name .. " успешно вызвал мини-пупсика (автоматически созданного).")
-end
-
--- Функция удаления питомца
-local function despawnPet(player)
-    if activePets[player] then
-        activePets[player].Pet:Destroy()
-        activePets[player] = nil
-        print(player.Name .. "'s мини-пупсик удален.")
-    end
-end
-
---------------------------------------------------------------------------------
--- 🏃 ЦИКЛ СЛЕДОВАНИЯ (Heartbeat)
---------------------------------------------------------------------------------
-
--- Функция, которая выполняется каждый кадр для плавного следования
-local function onHeartbeat()
-    for player, petData in pairs(activePets) do
-        local character = player.Character
-        local root = petData.Root
-        
-        -- Проверяем, существует ли персонаж
-        if character and character.Parent and character:FindFirstChild("HumanoidRootPart") then
-            local playerRoot = character.HumanoidRootPart
-            
-            -- Вычисляем смещение
-            local offsetVector = playerRoot.CFrame[ATTACH_SIDE] * DISTANCE_OFFSET
-            
-            -- Вычисляем целевую позицию
-            local targetPosition = playerRoot.Position + offsetVector + Vector3.new(0, HEIGHT_OFFSET, 0)
-            
-            -- Плавное перемещение (Lerp)
-            local newPosition = root.Position:Lerp(targetPosition, FOLLOW_SPEED)
-            
-            -- Применяем позицию
-            root.CFrame = CFrame.new(newPosition)
-            
-            -- Поворачиваем пупсика в сторону игрока (шар не вращается, но это хорошая практика)
-            local lookAtPosition = playerRoot.Position + Vector3.new(0, HEIGHT_OFFSET, 0)
-            root.CFrame = CFrame.new(newPosition, lookAtPosition)
-            
-        else
-            -- Если персонаж не найден, удаляем питомца
-            despawnPet(player)
+-- Функция для выбора случайного игрока
+local function selectRandomPet()
+    local playerList = {}
+    for _, player in ipairs(Players:GetPlayers()) do
+        -- Исключаем себя из списка возможных питомцев
+        if player ~= LocalPlayer and player.Character then
+            table.insert(playerList, player)
         end
     end
+
+    if #playerList > 0 then
+        local randomIndex = math.random(1, #playerList)
+        return playerList[randomIndex]
+    else
+        return nil
+    end
+end
+
+-- Функция масштабирования персонажа
+local function setCharacterScale(character, scaleFactor)
+    for _, child in ipairs(character:GetChildren()) do
+        if child:IsA("BasePart") then
+            -- Масштабируем части тела
+            child.Scale = scaleFactor
+        end
+        if child:IsA("Accessory") then
+            -- Масштабируем аксессуары, если они используют Handle
+            if child:FindFirstChild("Handle") and child.Handle:IsA("BasePart") then
+                child.Handle.Scale = scaleFactor
+            end
+        end
+        -- Мадаем и масштабируем Humanoid's RigType
+        if child:IsA("Humanoid") then
+            local desc = child:GetAppliedDescription()
+            desc.Scale = scaleFactor
+            child:ApplyDescription(desc)
+        end
+    end
+end
+
+-- Инициализация и подготовка питомца
+local function initializePet(newTargetPlayer)
+    if targetPlayer then
+        -- Сбросить предыдущего питомца, если он был
+        resetPet()
+    end
+    
+    targetPlayer = newTargetPlayer
+    local character = targetPlayer.Character
+    
+    if character and character:FindFirstChildOfClass("Humanoid") then
+        print("Новый питомец: " .. targetPlayer.Name)
+        
+        -- Локально сохраняем оригинальные размеры
+        for _, part in ipairs(character:GetChildren()) do
+            if part:IsA("BasePart") then
+                originalScales[part] = part.Scale
+            end
+        end
+        
+        -- Применяем масштаб
+        setCharacterScale(character, PET_SCALE)
+        
+        -- Отключаем физику для клиента, чтобы управлять через CFrame
+        character:SetAttribute("Massless", true)
+        for _, part in ipairs(character:GetChildren()) do
+            if part:IsA("BasePart") then
+                part.Anchored = true
+                part.CanCollide = false
+            end
+        end
+    else
+        warn("Ошибка: не удалось подготовить персонажа для " .. targetPlayer.Name)
+        targetPlayer = nil
+    end
+end
+
+-- Сброс масштаба и состояния питомца
+local function resetPet()
+    if targetPlayer and targetPlayer.Character then
+        local character = targetPlayer.Character
+        
+        -- Сброс масштаба
+        setCharacterScale(character, 1 / PET_SCALE) -- Сброс до 1.0
+        
+        -- Сброс физики
+        for _, part in ipairs(character:GetChildren()) do
+            if part:IsA("BasePart") then
+                part.Anchored = false
+                part.CanCollide = true
+            end
+        end
+    end
+    targetPlayer = nil
+    originalScales = {}
+end
+
+--------------------------------------------------------------------------------
+-- 🏃 ЦИКЛ СЛЕДОВАНИЯ (RenderStepped)
+--------------------------------------------------------------------------------
+
+local function onRenderStepped()
+    if not targetPlayer or not targetPlayer.Character or not targetPlayer.Character:FindFirstChild("HumanoidRootPart") then
+        return
+    end
+
+    local petRoot = targetPlayer.Character.HumanoidRootPart
+    
+    -- Вычисляем целевую позицию относительно камеры (чтобы питомец всегда был рядом с экраном)
+    local targetCFrame = Camera.CFrame * CFrame.new(FOLLOW_OFFSET)
+    
+    -- Плавное перемещение (Lerp)
+    local newCFrame = petRoot.CFrame:Lerp(targetCFrame, FOLLOW_SPEED)
+    
+    -- Применяем позицию. Важно использовать CFrame для локального управления
+    petRoot.CFrame = newCFrame
+    
+    -- Опционально: поворачиваем питомца так, чтобы он смотрел на игрока
+    local lookAtPos = LocalPlayer.Character.HumanoidRootPart.Position
+    petRoot.CFrame = CFrame.new(newCFrame.p, lookAtPos)
 end
 
 --------------------------------------------------------------------------------
 -- 🚀 ЗАПУСК СКРИПТА
 --------------------------------------------------------------------------------
 
--- Спавним питомца, как только игрок появляется
-Players.PlayerAdded:Connect(function(player)
-    -- Ждем, пока персонаж появится в первый раз
-    local function onCharacterAdded()
-        spawnPet(player)
-    end
-    player.CharacterAdded:Connect(onCharacterAdded)
-end)
+-- Выбираем случайного питомца после загрузки персонажа
+LocalPlayer.CharacterAdded:Wait()
 
--- Удаляем питомца, когда игрок выходит
-Players.PlayerRemoving:Connect(despawnPet)
+-- Ждем короткое время, чтобы другие игроки успели загрузиться
+task.wait(2) 
 
--- Запускаем цикл следования
-RunService.Heartbeat:Connect(onHeartbeat)
+local randomPet = selectRandomPet()
+
+if randomPet then
+    initializePet(randomPet)
+    -- Запускаем цикл следования, который должен быть в LocalScript
+    RunService.RenderStepped:Connect(onRenderStepped)
+else
+    print("Не найден другой игрок для выбора в качестве питомца.")
+end
+
+-- Сброс, когда игрок выходит/игра заканчивается (на всякий случай)
+game:BindToClose(resetPet)
