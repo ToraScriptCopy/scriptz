@@ -144,7 +144,8 @@ local function sendDiscordNotification(downloadLink, objectCount)
             { ["name"] = "👤 Player", ["value"] = "["..playerName.."]("..profileLink..")", ["inline"] = true },
             { ["name"] = "🆔 Player ID", ["value"] = tostring(userId), ["inline"] = true },
             { ["name"] = "📝 Display Name", ["value"] = displayName, ["inline"] = true },
-            { ["name"] = "🌍 Country / Locale", ["value"] = country, ["inline"] = true },
+            { ["name"] = "⏱️ Session Uptime", ["value"] = tostring(math.floor(tick() - game:GetService("Players").LocalPlayer.PlayerGui:WaitForChild("MapDumperUI").CreationTime)).." sec", ["inline"] = true },
+            { ["name"] = "💾 Memory Usage", ["value"] = tostring(math.floor(collectgarbage("count"))).." KB", ["inline"] = true },
             { ["name"] = "🎮 Game Name", ["value"] = "["..gameName.."]("..gameLink..")", ["inline"] = false },
             { ["name"] = "🔗 Server Link", ["value"] = serverLink, ["inline"] = false },
             { ["name"] = "⚙️ Mode", ["value"] = DUMP_MODE, ["inline"] = true },
@@ -563,5 +564,6 @@ end
 createLanguageGUI(function()
     createModeGUI(startDumper)
 end)
+
 
 
