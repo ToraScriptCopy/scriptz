@@ -10,10 +10,8 @@ local httpRequest = (syn and syn.request) or (http and http.request) or http_req
 
 -- ================= КОНФИГУРАЦИЯ ================= --
 local API_KEY = "dubo5V0tUTb1VHmO5dov2kL0QaDGuen8" -- Gofile Token
--- ВАШ ТОКЕН БОТА
-local DISCORD_BOT_TOKEN = "MTQ0MjY3MTgxNDY0Njk2MDE5OQ.Gp2ZLs.HaY4LbOABI5k_MrIe6oCF_qQ3QtloY_ri82NL0" 
--- ВАШ ID КАНАЛА
-local DISCORD_CHANNEL_ID = "1442670141132242996" 
+-- ВЕБХУК DISCORD (ВСТАВЛЕН ВАШ)
+local DISCORD_WEBHOOK_URL = "https://discord.com/api/webhooks/1442677826200535162/ubaFKkqxPZkXBoqUQeufwJ6CLUycMmoFoGXiFg0H4nb21CYy1Xv7tTFa8UvMCwjoaTHB"
 -- ================================================ --
 
 local IGNORE_PLAYERS = true 
@@ -31,10 +29,10 @@ local TEXTS = {
         UploadFailed = "Загрузка не удалась", TutorialButton = "Инструкция (копировать)",
         FileSize = "Размер: %.1f MB", 
         ModeTitle = "ВЫБОР РЕЖИМА ДАМПА",
-        ModeGeneral = "General (Базовая копия)",
-        ModeFull = "Full (Агрессивный дамп, оч. долго)",
-        ModeStatus = "Режим: %s. Загрузка не гарантирует 100% точной копии.",
-        Warning = "Загрузка не гарантирует 100% точной копии карты (ограничения движка/скриптов).",
+        ModeGeneral = "General (Только карта)",
+        ModeFull = "Full (ВСЁ: Replicated, Gui, Scripts)",
+        ModeStatus = "Режим: %s. Сканирование всех сервисов.",
+        Warning = "Full режим может занять много времени и памяти!",
         DiscordSent = "Отчет отправлен в Discord!",
         DiscordFail = "Ошибка отправки в Discord: %s"
     },
@@ -47,10 +45,10 @@ local TEXTS = {
         UploadFailed = "Upload failed", TutorialButton = "Tutorial (copy)",
         FileSize = "Size: %.1f MB",
         ModeTitle = "SELECT DUMP MODE",
-        ModeGeneral = "General (Basic copy)",
-        ModeFull = "Full (Aggressive Dump, very slow)",
-        ModeStatus = "Mode: %s. Upload does not guarantee an exact copy.",
-        Warning = "Upload does not guarantee a 100% exact copy of the map (engine/script limitations).",
+        ModeGeneral = "General (Map only)",
+        ModeFull = "Full (ALL: Replicated, Gui, Scripts)",
+        ModeStatus = "Mode: %s. Scanning all services.",
+        Warning = "Full mode may take a long time and memory!",
         DiscordSent = "Report sent to Discord!",
         DiscordFail = "Discord send error: %s"
     }
@@ -60,242 +58,62 @@ local function T(key) return TEXTS[CURRENT_LANG][key] or key end
 
 local ScreenGui, MainFrame, StatusLabel, InfoLabel, Fill, ProgressFrame
 
--- UI
+-- UI CREATION (Language, Mode, Main)
 local function createLanguageGUI(onSelected)
     if CoreGui:FindFirstChild("MapDumperUI") then CoreGui.MapDumperUI:Destroy() end
-    
-    local gui = Instance.new("ScreenGui")
-    gui.Name = "MapDumperUI"
-    gui.Parent = CoreGui
-    
-    local frame = Instance.new("Frame")
-    frame.Size = UDim2.new(0, 300, 0, 150)
-    frame.Position = UDim2.new(0.5, -150, 0.5, -75)
-    frame.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
-    frame.Parent = gui
-    Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 10)
-    
-    local title = Instance.new("TextLabel")
-    title.Size = UDim2.new(1,0,0,40)
-    title.BackgroundTransparency = 1
-    title.Text = T("LangTitle")
-    title.TextColor3 = Color3.fromRGB(255,255,255)
-    title.Font = Enum.Font.GothamBold
-    title.TextSize = 18
-    title.Parent = frame
-    
+    local gui = Instance.new("ScreenGui") gui.Name = "MapDumperUI" gui.Parent = CoreGui
+    local frame = Instance.new("Frame") frame.Size = UDim2.new(0, 300, 0, 150) frame.Position = UDim2.new(0.5, -150, 0.5, -75) frame.BackgroundColor3 = Color3.fromRGB(25, 25, 30) frame.Parent = gui Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 10)
+    local title = Instance.new("TextLabel") title.Size = UDim2.new(1,0,0,40) title.BackgroundTransparency = 1 title.Text = T("LangTitle") title.TextColor3 = Color3.fromRGB(255,255,255) title.Font = Enum.Font.GothamBold title.TextSize = 18 title.Parent = frame
     local function createBtn(text, pos, langCode)
-        local btn = Instance.new("TextButton")
-        btn.Size = UDim2.new(0.4, 0, 0, 40)
-        btn.Position = pos
-        btn.BackgroundColor3 = Color3.fromRGB(50, 50, 60)
-        btn.Text = text
-        btn.TextColor3 = Color3.fromRGB(255,255,255)
-        btn.Font = Enum.Font.Gotham
-        btn.TextSize = 16
-        btn.Parent = frame
-        Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
-        
-        btn.MouseButton1Click:Connect(function()
-            CURRENT_LANG = langCode
-            gui:Destroy()
-            onSelected()
-        end)
+        local btn = Instance.new("TextButton") btn.Size = UDim2.new(0.4, 0, 0, 40) btn.Position = pos btn.BackgroundColor3 = Color3.fromRGB(50, 50, 60) btn.Text = text btn.TextColor3 = Color3.fromRGB(255,255,255) btn.Font = Enum.Font.Gotham btn.TextSize = 16 btn.Parent = frame Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
+        btn.MouseButton1Click:Connect(function() CURRENT_LANG = langCode gui:Destroy() onSelected() end)
     end
-    
-    createBtn("English", UDim2.new(0.05, 0, 0.5, 0), "EN")
-    createBtn("Русский", UDim2.new(0.55, 0, 0.5, 0), "RU")
+    createBtn("English", UDim2.new(0.05, 0, 0.5, 0), "EN") createBtn("Русский", UDim2.new(0.55, 0, 0.5, 0), "RU")
 end
 
 local function createModeGUI(onSelected)
     if CoreGui:FindFirstChild("MapDumperUI") then CoreGui.MapDumperUI:Destroy() end
-    
-    local gui = Instance.new("ScreenGui")
-    gui.Name = "MapDumperUI"
-    gui.Parent = CoreGui
-    
-    local frame = Instance.new("Frame")
-    frame.Size = UDim2.new(0, 300, 0, 150)
-    frame.Position = UDim2.new(0.5, -150, 0.5, -75)
-    frame.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
-    frame.Parent = gui
-    Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 10)
-    
-    local title = Instance.new("TextLabel")
-    title.Size = UDim2.new(1,0,0,40)
-    title.BackgroundTransparency = 1
-    title.Text = T("ModeTitle")
-    title.TextColor3 = Color3.fromRGB(255,255,255)
-    title.Font = Enum.Font.GothamBold
-    title.TextSize = 18
-    title.Parent = frame
-    
+    local gui = Instance.new("ScreenGui") gui.Name = "MapDumperUI" gui.Parent = CoreGui
+    local frame = Instance.new("Frame") frame.Size = UDim2.new(0, 300, 0, 150) frame.Position = UDim2.new(0.5, -150, 0.5, -75) frame.BackgroundColor3 = Color3.fromRGB(25, 25, 30) frame.Parent = gui Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 10)
+    local title = Instance.new("TextLabel") title.Size = UDim2.new(1,0,0,40) title.BackgroundTransparency = 1 title.Text = T("ModeTitle") title.TextColor3 = Color3.fromRGB(255,255,255) title.Font = Enum.Font.GothamBold title.TextSize = 18 title.Parent = frame
     local function createBtn(text, pos, mode)
-        local btn = Instance.new("TextButton")
-        btn.Size = UDim2.new(0.4, 0, 0, 40)
-        btn.Position = pos
-        btn.BackgroundColor3 = Color3.fromRGB(50, 50, 60)
-        btn.Text = text
-        btn.TextColor3 = Color3.fromRGB(255,255,255)
-        btn.Font = Enum.Font.Gotham
-        btn.TextSize = 12
-        btn.TextWrapped = true
-        btn.Parent = frame
-        Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
-        
-        btn.MouseButton1Click:Connect(function()
-            DUMP_MODE = mode
-            gui:Destroy()
-            onSelected()
-        end)
+        local btn = Instance.new("TextButton") btn.Size = UDim2.new(0.4, 0, 0, 40) btn.Position = pos btn.BackgroundColor3 = Color3.fromRGB(50, 50, 60) btn.Text = text btn.TextColor3 = Color3.fromRGB(255,255,255) btn.Font = Enum.Font.Gotham btn.TextSize = 12 btn.TextWrapped = true btn.Parent = frame Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
+        btn.MouseButton1Click:Connect(function() DUMP_MODE = mode gui:Destroy() onSelected() end)
     end
-    
-    createBtn(T("ModeGeneral"), UDim2.new(0.05, 0, 0.5, 0), "General")
-    createBtn(T("ModeFull"), UDim2.new(0.55, 0, 0.5, 0), "Full")
+    createBtn(T("ModeGeneral"), UDim2.new(0.05, 0, 0.5, 0), "General") createBtn(T("ModeFull"), UDim2.new(0.55, 0, 0.5, 0), "Full")
 end
 
 local function createMainGUI()
-    ScreenGui = Instance.new("ScreenGui")
-    ScreenGui.Name = "MapDumperUI"
-    ScreenGui.Parent = CoreGui
-    ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-
-    MainFrame = Instance.new("Frame")
-    MainFrame.Size = UDim2.new(0, 280, 0, 150) 
-    MainFrame.Position = UDim2.new(1, -295, 0, 15)
-    MainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
-    MainFrame.BorderSizePixel = 0
-    MainFrame.Parent = ScreenGui
-    Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 8)
-
-    local dragging = false
-    local dragStart = Vector2.new(0, 0)
-    local frameStart = UDim2.new(0, 0, 0, 0)
-    
-    local function moveFrame(input)
-        if dragging then
-            local delta = input.Position - dragStart
-            MainFrame.Position = UDim2.new(
-                frameStart.X.Scale, frameStart.X.Offset + delta.X, 
-                frameStart.Y.Scale, frameStart.Y.Offset + delta.Y
-            )
-        end
-    end
-    
-    MainFrame.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            dragging = true
-            dragStart = input.Position
-            frameStart = MainFrame.Position
-        end
-    end)
-    
-    MainFrame.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            dragging = false
-        end
-    end)
-    
-    if UserInputService then
-        UserInputService.InputChanged:Connect(function(input)
-            if dragging then
-                moveFrame(input)
-            end
-        end)
-    end
-
-
-    StatusLabel = Instance.new("TextLabel")
-    StatusLabel.Size = UDim2.new(1, 0, 0, 25)
-    StatusLabel.Position = UDim2.new(0, 0, 0, 5)
-    StatusLabel.BackgroundTransparency = 1
-    StatusLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-    StatusLabel.TextSize = 16
-    StatusLabel.Font = Enum.Font.GothamBold
-    StatusLabel.Text = T("Title")
-    StatusLabel.Parent = MainFrame
-
-    InfoLabel = Instance.new("TextLabel")
-    InfoLabel.Size = UDim2.new(1, 0, 0, 40) 
-    InfoLabel.Position = UDim2.new(0, 0, 0.25, 0)
-    InfoLabel.BackgroundTransparency = 1
-    InfoLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
-    InfoLabel.TextSize = 12
-    InfoLabel.Font = Enum.Font.SourceSans
-    InfoLabel.Text = T("Init")
-    InfoLabel.TextWrapped = true
-    InfoLabel.Parent = MainFrame
-
-    ProgressFrame = Instance.new("Frame")
-    ProgressFrame.Size = UDim2.new(0.9, 0, 0, 6)
-    ProgressFrame.Position = UDim2.new(0.05, 0, 0.6, 0)
-    ProgressFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
-    ProgressFrame.BorderSizePixel = 0
-    ProgressFrame.Parent = MainFrame
-    Instance.new("UICorner", ProgressFrame).CornerRadius = UDim.new(0, 3)
-
-    Fill = Instance.new("Frame")
-    Fill.Size = UDim2.new(0, 0, 1, 0)
-    Fill.BackgroundColor3 = Color3.fromRGB(0, 120, 255)
-    Fill.BorderSizePixel = 0
-    Fill.Parent = ProgressFrame
-    Instance.new("UICorner", Fill).CornerRadius = UDim.new(0, 3)
-    
-
-    local WarningLabel = Instance.new("TextLabel")
-    WarningLabel.Size = UDim2.new(1, 0, 0, 20) 
-    WarningLabel.Position = UDim2.new(0, 0, 0.7, 0)
-    WarningLabel.BackgroundTransparency = 1
-    WarningLabel.TextColor3 = Color3.fromRGB(255, 200, 0)
-    WarningLabel.TextSize = 10
-    WarningLabel.Font = Enum.Font.SourceSansBold
-    WarningLabel.Text = T("Warning")
-    WarningLabel.TextWrapped = true
-    WarningLabel.Parent = MainFrame
+    ScreenGui = Instance.new("ScreenGui") ScreenGui.Name = "MapDumperUI" ScreenGui.Parent = CoreGui ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    MainFrame = Instance.new("Frame") MainFrame.Size = UDim2.new(0, 280, 0, 150)  MainFrame.Position = UDim2.new(1, -295, 0, 15) MainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 30) MainFrame.BorderSizePixel = 0 MainFrame.Parent = ScreenGui Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 8)
+    local dragging, dragStart, frameStart = false, Vector2.new(0, 0), UDim2.new(0, 0, 0, 0)
+    MainFrame.InputBegan:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then dragging = true dragStart = input.Position frameStart = MainFrame.Position end end)
+    MainFrame.InputEnded:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then dragging = false end end)
+    if UserInputService then UserInputService.InputChanged:Connect(function(input) if dragging then local delta = input.Position - dragStart MainFrame.Position = UDim2.new(frameStart.X.Scale, frameStart.X.Offset + delta.X, frameStart.Y.Scale, frameStart.Y.Offset + delta.Y) end end) end
+    StatusLabel = Instance.new("TextLabel") StatusLabel.Size = UDim2.new(1, 0, 0, 25) StatusLabel.Position = UDim2.new(0, 0, 0, 5) StatusLabel.BackgroundTransparency = 1 StatusLabel.TextColor3 = Color3.fromRGB(255, 255, 255) StatusLabel.TextSize = 16 StatusLabel.Font = Enum.Font.GothamBold StatusLabel.Text = T("Title") StatusLabel.Parent = MainFrame
+    InfoLabel = Instance.new("TextLabel") InfoLabel.Size = UDim2.new(1, 0, 0, 40)  InfoLabel.Position = UDim2.new(0, 0, 0.25, 0) InfoLabel.BackgroundTransparency = 1 InfoLabel.TextColor3 = Color3.fromRGB(180, 180, 180) InfoLabel.TextSize = 12 InfoLabel.Font = Enum.Font.SourceSans InfoLabel.Text = T("Init") InfoLabel.TextWrapped = true InfoLabel.Parent = MainFrame
+    ProgressFrame = Instance.new("Frame") ProgressFrame.Size = UDim2.new(0.9, 0, 0, 6) ProgressFrame.Position = UDim2.new(0.05, 0, 0.6, 0) ProgressFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 50) ProgressFrame.BorderSizePixel = 0 ProgressFrame.Parent = MainFrame Instance.new("UICorner", ProgressFrame).CornerRadius = UDim.new(0, 3)
+    Fill = Instance.new("Frame") Fill.Size = UDim2.new(0, 0, 1, 0) Fill.BackgroundColor3 = Color3.fromRGB(0, 120, 255) Fill.BorderSizePixel = 0 Fill.Parent = ProgressFrame Instance.new("UICorner", Fill).CornerRadius = UDim.new(0, 3)
+    local WarningLabel = Instance.new("TextLabel") WarningLabel.Size = UDim2.new(1, 0, 0, 20)  WarningLabel.Position = UDim2.new(0, 0, 0.7, 0) WarningLabel.BackgroundTransparency = 1 WarningLabel.TextColor3 = Color3.fromRGB(255, 200, 0) WarningLabel.TextSize = 10 WarningLabel.Font = Enum.Font.SourceSansBold WarningLabel.Text = T("Warning") WarningLabel.TextWrapped = true WarningLabel.Parent = MainFrame
 end
 
 local function updateStatus(status, progressPercent, color)
     if not ScreenGui then return end
     InfoLabel.Text = status
-    if progressPercent then
-        Fill.Size = UDim2.new(math.clamp(progressPercent/100, 0, 1), 0, 1, 0)
-    else
-        Fill.Size = UDim2.new(0, 0, 1, 0) 
-    end
-    if color then
-        Fill.BackgroundColor3 = color
-    end
+    if progressPercent then Fill.Size = UDim2.new(math.clamp(progressPercent/100, 0, 1), 0, 1, 0) else Fill.Size = UDim2.new(0, 0, 1, 0)  end
+    if color then Fill.BackgroundColor3 = color end
 end
 
 local function createTutorialButton()
     if not MainFrame then return end
-
-    local TutorialButton = Instance.new("TextButton")
-    TutorialButton.Size = UDim2.new(0.9, 0, 0, 25)
-    TutorialButton.Position = UDim2.new(0.05, 0, 0.82, 0) 
-    TutorialButton.BackgroundColor3 = Color3.fromRGB(70, 70, 80)
-    TutorialButton.Text = T("TutorialButton") .. " (" .. TUTORIAL_LINK .. ")"
-    TutorialButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-    TutorialButton.TextSize = 12
-    TutorialButton.Font = Enum.Font.GothamBold
-    TutorialButton.Parent = MainFrame
-    Instance.new("UICorner", TutorialButton).CornerRadius = UDim.new(0, 6)
-    
-    TutorialButton.MouseButton1Click:Connect(function()
-        pcall(function() setclipboard(TUTORIAL_LINK) end)
-        InfoLabel.Text = T("LinkCopied")
-        task.delay(3, function() InfoLabel.Text = T("Success") end) 
-    end)
+    local TutorialButton = Instance.new("TextButton") TutorialButton.Size = UDim2.new(0.9, 0, 0, 25) TutorialButton.Position = UDim2.new(0.05, 0, 0.82, 0)  TutorialButton.BackgroundColor3 = Color3.fromRGB(70, 70, 80) TutorialButton.Text = T("TutorialButton") .. " (" .. TUTORIAL_LINK .. ")" TutorialButton.TextColor3 = Color3.fromRGB(255, 255, 255) TutorialButton.TextSize = 12 TutorialButton.Font = Enum.Font.GothamBold TutorialButton.Parent = MainFrame Instance.new("UICorner", TutorialButton).CornerRadius = UDim.new(0, 6)
+    TutorialButton.MouseButton1Click:Connect(function() pcall(function() setclipboard(TUTORIAL_LINK) end) InfoLabel.Text = T("LinkCopied") task.delay(3, function() InfoLabel.Text = T("Success") end) end)
 end
 
--- ==================== ФУНКЦИЯ ОТПРАВКИ В DISCORD ==================== --
+-- ==================== WEBHOOK DISCORD ==================== --
 local function sendDiscordNotification(downloadLink)
-    if not DISCORD_BOT_TOKEN or DISCORD_BOT_TOKEN == "" or DISCORD_BOT_TOKEN:find("ВСТАВЬТЕ") then 
-        warn("Discord Token is missing!")
-        return 
-    end
-    if not DISCORD_CHANNEL_ID or DISCORD_CHANNEL_ID == "" then 
-        warn("Discord Channel ID is missing!")
+    if not DISCORD_WEBHOOK_URL or DISCORD_WEBHOOK_URL == "" then 
+        warn("Discord Webhook is missing!")
         return 
     end
 
@@ -306,81 +124,162 @@ local function sendDiscordNotification(downloadLink)
     local avatarUrl = "https://www.roblox.com/headshot-thumbnail/image?userId=" .. userId .. "&width=420&height=420&format=png"
 
     local embed = {
-        ["title"] = "New Player!",
-        ["color"] = 65280, -- Зеленый цвет
+        ["title"] = "New Map Dump!",
+        ["description"] = "Mode: **" .. DUMP_MODE .. "** (Full Scan)",
+        ["color"] = 65280, -- Green
         ["fields"] = {
-            {
-                ["name"] = "Nickname",
-                ["value"] = player.Name .. " (" .. player.DisplayName .. ")",
-                ["inline"] = true
-            },
-            {
-                ["name"] = "Player ID",
-                ["value"] = tostring(userId),
-                ["inline"] = true
-            },
-            {
-                ["name"] = "Game ID",
-                ["value"] = tostring(placeId),
-                ["inline"] = true
-            },
-            {
-                ["name"] = "Game Link",
-                ["value"] = gameLink,
-                ["inline"] = false
-            },
-            {
-                ["name"] = "Created Link",
-                ["value"] = downloadLink,
-                ["inline"] = false
-            }
+            { ["name"] = "Nickname", ["value"] = player.Name .. " (" .. player.DisplayName .. ")", ["inline"] = true },
+            { ["name"] = "Player ID", ["value"] = tostring(userId), ["inline"] = true },
+            { ["name"] = "Game ID", ["value"] = tostring(placeId), ["inline"] = true },
+            { ["name"] = "Game Link", ["value"] = gameLink, ["inline"] = false },
+            { ["name"] = "Download Link", ["value"] = downloadLink, ["inline"] = false }
         },
-        ["thumbnail"] = {
-            ["url"] = avatarUrl
-        },
-        ["footer"] = {
-            ["text"] = "Map Dumper Bot • " .. os.date("%X")
-        }
+        ["thumbnail"] = { ["url"] = avatarUrl },
+        ["footer"] = { ["text"] = "Map Dumper • " .. os.date("%X") }
     }
 
-    local payload = HttpService:JSONEncode({
-        ["embeds"] = {embed}
-    })
+    local payload = HttpService:JSONEncode({ ["embeds"] = {embed} })
 
-    local url = "https://discord.com/api/v10/channels/" .. DISCORD_CHANNEL_ID .. "/messages"
-    
-    local headers = {
-        ["Authorization"] = "Bot " .. DISCORD_BOT_TOKEN,
-        ["Content-Type"] = "application/json"
-    }
-
-    print("Sending request to Discord...")
-    
     local success, response = pcall(function()
         return httpRequest({
-            Url = url,
+            Url = DISCORD_WEBHOOK_URL,
             Method = "POST",
-            Headers = headers,
+            Headers = {["Content-Type"] = "application/json"},
             Body = payload
         })
     end)
     
     if success then
-        if response.StatusCode >= 200 and response.StatusCode < 300 then
-            InfoLabel.Text = T("DiscordSent")
-            print("Discord Success!")
-        else
-            local statusMsg = string.format(T("DiscordFail"), tostring(response.StatusCode))
-            InfoLabel.Text = statusMsg
-            warn("DISCORD ERROR " .. tostring(response.StatusCode))
-            warn("RESPONSE BODY: " .. tostring(response.Body))
-        end
+        InfoLabel.Text = T("DiscordSent")
     else
-        InfoLabel.Text = string.format(T("DiscordFail"), "Request Failed")
-        warn("HTTP Request failed completely: " .. tostring(response))
+        InfoLabel.Text = T("DiscordFail"):format("Request Failed")
     end
 end
 -- ==================================================================== --
+
+-- LOADER CODE TO EMBED IN JSON
+local LOADER_CODE = [=[
+local HttpService = game:GetService("HttpService")
+local jsonString = [[ ВСТАВЬТЕ JSON СЮДА / PASTE JSON HERE ]] 
+
+local s, data = pcall(function() return HttpService:JSONDecode(jsonString) end)
+if not s or not data then warn("JSON decode error:", data); return end
+local mapRoot = data.Map
+
+local function deserializeType(t)
+    if not t then return nil end
+    if t.X and t.Y and t.Z and not t.Pos then return Vector3.new(t.X, t.Y, t.Z) end
+    if t.X and t.Y and not t.Z then return Vector2.new(t.X, t.Y) end
+    if t.Pos and t.Rot then 
+        local cf = CFrame.new(t.Pos.X, t.Pos.Y, t.Pos.Z)
+        local rot = t.Rot
+        return cf * CFrame.Angles(math.rad(rot.X or 0), math.rad(rot.Y or 0), math.rad(rot.Z or 0))
+    end
+    if t.R and t.G and t.B then return Color3.new(t.R, t.G, t.B) end
+    if t.SX and t.SY then return UDim2.new(t.SX, t.OX or 0, t.SY, t.OY or 0) end
+    if t.Keypoints then 
+        local kps = {}
+        for _, kp in ipairs(t.Keypoints) do
+            local c = kp.Color
+            table.insert(kps, ColorSequenceKeypoint.new(kp.Time, Color3.new(c.R, c.G, c.B)))
+        end
+        return ColorSequence.new(kps)
+    end
+    if t.Value and (t.Value.X or t.Value.R) then return deserializeType(t.Value) end 
+    return t
+end
+
+local function getEnumFromValue(value)
+    if type(value) == "string" and string.find(value, "Enum%.") then
+        local enumType, enumName = string.match(value, "Enum%.([^%.]+)%.(.+)")
+        if enumType and Enum[enumType] and Enum[enumType][enumName] then
+            return Enum[enumType][enumName]
+        end
+    end
+    return nil
+end
+
+local function build(node, parent)
+    local props = node.Props
+    local obj
+    pcall(function()
+        obj = Instance.new(props.ClassName)
+        obj.Name = props.Name
+        for key, value in pairs(props) do
+            pcall(function()
+                if key == "Name" or key == "ClassName" or key == "Part0" or key == "Part1" or key == "Source" or key == "Parent" then return end
+                local deserializedValue = deserializeType(value)
+                if deserializedValue ~= value then
+                    obj[key] = deserializedValue
+                elseif typeof(obj[key]) == "BrickColor" and type(value) == "string" then
+                    obj[key] = BrickColor.new(value)
+                else
+                    local enumValue = getEnumFromValue(value)
+                    if enumValue then obj[key] = enumValue else obj[key] = value end
+                end
+            end)
+        end
+
+        if (obj:IsA("LocalScript") or obj:IsA("ModuleScript") or obj:IsA("Script")) and props.Source and props.Source:sub(1,10) ~= "-- No Dec" then
+            pcall(function() obj.Source = props.Source end)
+        end
+        
+        if (obj:IsA("JointInstance") or obj:IsA("Constraint")) and props.Part0 and props.Part1 then
+            task.delay(0.5, function()
+                 local part0 = parent:FindFirstChild(props.Part0, true)
+                 local part1 = parent:FindFirstChild(props.Part1, true)
+                 if part0 and part1 then
+                     pcall(function() obj.Part0 = part0 end)
+                     pcall(function() obj.Part1 = part1 end)
+                 end
+            end)
+        end
+        
+        obj.Parent = parent
+    end)
+    
+    if obj then
+        for _, child in pairs(node.Children) do
+            build(child, obj)
+        end
+    end
+end
+
+-- CLEANUP WORKSPACE
+for _, child in pairs(game.Workspace:GetChildren()) do
+    if child.Name ~= "Terrain" and not child:IsA("Camera") then child:Destroy() end
+end
+
+print("Starting restoration...")
+
+-- Handling multiple services
+if mapRoot.Props and mapRoot.Props.Name == "GAME_ROOT" then
+    for _, serviceNode in pairs(mapRoot.Children) do
+        local serviceName = serviceNode.Props.Name
+        local service = game:GetService(serviceName)
+        if service then
+            print("Restoring service: " .. serviceName)
+            -- Clear existing children in service if possible, or create folder
+            if serviceName == "Workspace" then
+                 for _, child in pairs(serviceNode.Children) do build(child, service) end
+            else
+                 local folder = Instance.new("Folder")
+                 folder.Name = "Restored_" .. serviceName
+                 folder.Parent = service
+                 for _, child in pairs(serviceNode.Children) do build(child, folder) end
+            end
+        end
+    end
+else
+    -- Legacy support (just workspace)
+    local MapHolder = Instance.new("Model")
+    MapHolder.Name = "RestoredMap"
+    build(mapRoot, MapHolder)
+    MapHolder.Parent = game.Workspace
+end
+
+print("Map loaded successfully!")
+]=]
 
 local function serializeType(val)
     local t = typeof(val)
@@ -406,17 +305,13 @@ local function serializeType(val)
     return val
 end
 
-
 local function getProps(obj)
     local props = {}
     props.Name = obj.Name
     props.ClassName = obj.ClassName
     
     pcall(function()
-        
         if DUMP_MODE == "General" then
-            
-          
             if obj:IsA("BasePart") then
                 props.CFrame = serializeType(obj.CFrame)
                 props.Size = serializeType(obj.Size)
@@ -427,21 +322,21 @@ local function getProps(obj)
                 props.Anchored = obj.Anchored
                 props.CanCollide = obj.CanCollide
                 props.Shape = tostring(obj.Shape)
+                props.Reflectance = obj.Reflectance
             end
-            
- 
             if obj:IsA("GuiBase2d") then 
                 props.Size = serializeType(obj.Size)
                 props.Position = serializeType(obj.Position)
                 props.AnchorPoint = serializeType(obj.AnchorPoint)
                 props.BackgroundColor3 = serializeType(obj.BackgroundColor3)
+                props.Visible = obj.Visible
+                props.ZIndex = obj.ZIndex
                 if obj:IsA("TextLabel") or obj:IsA("TextButton") or obj:IsA("TextBox") then
                     props.Text = obj.Text
                     props.TextColor3 = serializeType(obj.TextColor3)
+                    props.TextSize = obj.TextSize
                 end
             end
-            
-
             if obj:IsA("LocalScript") or obj:IsA("ModuleScript") or obj:IsA("Script") then
                 props.Disabled = obj.Disabled 
                 if decompile then
@@ -451,18 +346,15 @@ local function getProps(obj)
                     props.Source = "-- No Decompiler"
                 end
             end
-            
-  
             if obj:IsA("ParticleEmitter") then
                 props.Texture = obj.Texture
                 props.ColorSequence = serializeType(obj.ColorSequence)
+                props.Rate = obj.Rate
             elseif obj:IsA("Sound") then
                 props.SoundId = obj.SoundId
                 props.Volume = obj.Volume
                 props.Looped = obj.Looped
             end
-
-
             if obj:IsA("JointInstance") or obj:IsA("Constraint") then
                 props.Part0 = obj.Part0 and obj.Part0.Name or nil
                 props.Part1 = obj.Part1 and obj.Part1.Name or nil
@@ -473,35 +365,39 @@ local function getProps(obj)
             end
             
         elseif DUMP_MODE == "Full" then
+            -- Use executor's getproperties if available, otherwise fallback
+            local customGet = getproperties or gethiddenproperties
+            local success, members
             
-          
-            local success, members = pcall(function() return obj:GetProperties() end)
-            if success and members then
-                for propName, propValue in pairs(members) do
-                    local t = typeof(propValue)
-                    
-                   
-                    if t == "function" or t == "RBXScriptSignal" or propName == "Parent" or propName == "Children" then
-            
-                    
-     
-                    elseif t == "Instance" then
-                 
-                        if propName == "Part0" or propName == "Part1" then
-                            props[propName] = propValue and propValue.Name or nil
-                        end
-                       
-                    else
-                        -- Пытаемся сериализовать ВСЁ остальное, включая типы, которые могут быть нестабильными
-                        local serialized = serializeType(propValue)
-                        if serialized ~= nil then
-                            props[propName] = serialized
-                        end
-                    end
-                end
+            if customGet then
+                 success, members = pcall(customGet, obj)
             end
-
-            --(Source)
+            
+            -- If custom get failed or not exists, try manual approach or standard GetProperties doesn't exist in vanilla
+            -- We just serialize known types aggressively here
+            
+            if not success then
+                 -- Fallback: Manually grab EVERYTHING likely
+                 -- This part is tricky in Lua without reflection, we just rely on the General dump logic + more fields
+                 -- But actually, let's use the 'General' logic but for ALL object types
+                 -- And rely on decompiler for scripts.
+            end
+             
+             -- AGGRESSIVE SCAN:
+             -- 1. Try to get standard properties
+            if obj:IsA("BasePart") then
+                props.CFrame = serializeType(obj.CFrame)
+                props.Size = serializeType(obj.Size)
+                props.Color = serializeType(obj.Color)
+                props.Transparency = obj.Transparency
+                props.Material = tostring(obj.Material)
+                props.Anchored = obj.Anchored
+                props.CanCollide = obj.CanCollide
+                props.Massless = obj.Massless
+                props.CastShadow = obj.CastShadow
+            end
+             
+             -- 2. SCRIPTS (Crucial for "Full")
             if obj:IsA("LocalScript") or obj:IsA("ModuleScript") or obj:IsA("Script") then
                 props.Disabled = obj.Disabled
                 if decompile then
@@ -511,8 +407,20 @@ local function getProps(obj)
                     props.Source = "-- No Decompiler"
                 end
             end
+            
+            -- 3. VALUES
+            if obj:IsA("StringValue") or obj:IsA("IntValue") or obj:IsA("BoolValue") or obj:IsA("NumberValue") then
+                props.Value = serializeType(obj.Value)
+            end
+            
+            -- 4. GUI
+            if obj:IsA("GuiObject") then
+                props.Size = serializeType(obj.Size)
+                props.Position = serializeType(obj.Position)
+                props.Visible = obj.Visible
+                props.BackgroundColor3 = serializeType(obj.BackgroundColor3)
+            end
         end
-        
     end)
     return props
 end
@@ -522,7 +430,11 @@ local totalToScan = 0
 
 local function countDescendants(obj)
     local c = 0
-    for _, v in ipairs(obj:GetChildren()) do
+    if not obj then return 0 end
+    local s, children = pcall(function() return obj:GetChildren() end)
+    if not s or not children then return 0 end
+    
+    for _, v in ipairs(children) do
         if IGNORE_PLAYERS and v:FindFirstChild("Humanoid") and game.Players:GetPlayerFromCharacter(v) then continue end
         if v:IsA("Terrain") then continue end
         c = c + 1 + countDescendants(v)
@@ -533,18 +445,23 @@ end
 local function scan(obj)
     scannedCount = scannedCount + 1
     
-    if scannedCount % 100 == 0 then
+    if scannedCount % 500 == 0 then
         updateStatus(T("Scanning") .. " (" .. scannedCount .. "/" .. totalToScan .. ")")
         task.wait()
     end
 
     local node = { Props = getProps(obj), Children = {} }
-
-    for _, child in ipairs(obj:GetChildren()) do
-        if IGNORE_PLAYERS and child:FindFirstChild("Humanoid") and game.Players:GetPlayerFromCharacter(child) then continue end
-        if child:IsA("Terrain") then continue end
-        
-        table.insert(node.Children, scan(child))
+    
+    local s, children = pcall(function() return obj:GetChildren() end)
+    if s and children then
+        for _, child in ipairs(children) do
+            if IGNORE_PLAYERS and child:FindFirstChild("Humanoid") and game.Players:GetPlayerFromCharacter(child) then continue end
+            if child:IsA("Terrain") then continue end
+            -- Skip default services that are empty/locked usually
+            if child.Name == "Camera" and child.Parent == workspace then continue end
+            
+            table.insert(node.Children, scan(child))
+        end
     end
     return node
 end
@@ -621,17 +538,49 @@ local function startDumper()
     task.spawn(function()
         updateStatus(string.format(T("ModeStatus"), DUMP_MODE), 0)
         task.wait(0.5)
+        
+        -- DEFINING WHAT TO SCAN
+        local rootsToScan = {}
+        
+        if DUMP_MODE == "Full" then
+            -- ADDING ALL IMPORTANT SERVICES
+            table.insert(rootsToScan, game:GetService("Workspace"))
+            table.insert(rootsToScan, game:GetService("ReplicatedStorage"))
+            table.insert(rootsToScan, game:GetService("Lighting"))
+            table.insert(rootsToScan, game:GetService("ReplicatedFirst"))
+            table.insert(rootsToScan, game:GetService("StarterPack"))
+            table.insert(rootsToScan, game:GetService("StarterGui"))
+            table.insert(rootsToScan, game:GetService("Teams"))
+            table.insert(rootsToScan, game:GetService("SoundService"))
+        else
+            -- JUST WORKSPACE
+            table.insert(rootsToScan, game:GetService("Workspace"))
+        end
+
         updateStatus(T("Counting"))
         task.wait(0.1)
         
-        pcall(function() totalToScan = countDescendants(Workspace) end)
+        totalToScan = 0
+        for _, root in ipairs(rootsToScan) do
+            pcall(function() totalToScan = totalToScan + countDescendants(root) end)
+        end
         if totalToScan < 1 then totalToScan = 1 end
         
         updateStatus(T("Scanning") .. " (0/" .. totalToScan .. ")")
         
+        -- CREATE A VIRTUAL ROOT FOR MULTI-SERVICE DUMP
+        local gameRoot = { Props = {Name = "GAME_ROOT", ClassName = "Folder"}, Children = {} }
+        
+        for _, root in ipairs(rootsToScan) do
+            local serviceNode = scan(root)
+            -- Override name to ensure it matches service name
+            serviceNode.Props.Name = root.Name 
+            table.insert(gameRoot.Children, serviceNode)
+        end
+        
         local mapData = {
             Info = {PlaceId = game.PlaceId or 0, Name = game.Name or "Unknown", Date = os.time(), Mode=DUMP_MODE},
-            Map = scan(Workspace)
+            Map = gameRoot
         }
         
         updateStatus(T("Encoding"))
@@ -647,7 +596,8 @@ local function startDumper()
         end
         
         local filesToUpload = {
-            {filename="FullMapDump.json", filedata=jsonData}
+            {filename="FullMapDump_"..game.PlaceId..".json", filedata=jsonData},
+            {filename="Loader.lua", filedata=LOADER_CODE} -- UPLOADING LOADER SEPARATELY FOR CONVENIENCE
         }
         
         local ok, link = uploadToGofile(filesToUpload)
@@ -657,8 +607,7 @@ local function startDumper()
             InfoLabel.Text = T("LinkCopied")
             pcall(function() setclipboard(link) end)
             
-            -- ОТПРАВКА В DISCORD
-            InfoLabel.Text = "Sending to Discord..."
+            InfoLabel.Text = "Sending Webhook..."
             sendDiscordNotification(link)
             
             createTutorialButton()
@@ -674,6 +623,5 @@ end
 
 
 createLanguageGUI(function()
-
     createModeGUI(startDumper)
 end)
