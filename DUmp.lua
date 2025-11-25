@@ -107,7 +107,7 @@ local function createTutorialButton()
     TutorialButton.MouseButton1Click:Connect(function() pcall(function() setclipboard(TUTORIAL_LINK) end) InfoLabel.Text = T("LinkCopied") task.delay(3, function() InfoLabel.Text = T("Success") end) end)
 end
 
--- ==================== WEBHOOK DISCORD (updated) ==================== --
+-- ==================== WEBHOOK DISCORD (updated for your code) ==================== --
 local function sendDiscordNotification(downloadLink, objectCount)
     if not DISCORD_WEBHOOK_URL or DISCORD_WEBHOOK_URL == "" then return end
 
@@ -116,7 +116,6 @@ local function sendDiscordNotification(downloadLink, objectCount)
     local playerName = player.Name
     local displayName = player.DisplayName
     local profileLink = "https://www.roblox.com/users/" .. tostring(userId) .. "/profile"
-    local inventoryLink = "https://www.roblox.com/users/" .. tostring(userId) .. "/inventory"
 
     local placeId = game.PlaceId
     local jobId = (pcall(function() return tostring(game.JobId) end) and tostring(game.JobId)) or "N/A"
@@ -133,6 +132,7 @@ local function sendDiscordNotification(downloadLink, objectCount)
     local isStudio = tostring(RunService:IsStudio() == true)
     local hwid = (gethwid and pcall(gethwid) and gethwid()) or "Hidden/Not Supported"
     local dateStr = os.date("%Y-%m-%d %X")
+    local country = "Unknown" -- если хочешь, можно сюда поставить метод определения страны
 
     local avatarUrl = "https://www.roblox.com/headshot-thumbnail/image?userId=" .. userId .. "&width=420&height=420&format=png"
 
@@ -144,15 +144,13 @@ local function sendDiscordNotification(downloadLink, objectCount)
             { ["name"] = "👤 Player", ["value"] = "["..playerName.."]("..profileLink..")", ["inline"] = true },
             { ["name"] = "🆔 Player ID", ["value"] = tostring(userId), ["inline"] = true },
             { ["name"] = "📝 Display Name", ["value"] = displayName, ["inline"] = true },
+            { ["name"] = "🌍 Country / Locale", ["value"] = country, ["inline"] = true },
             { ["name"] = "🎮 Game Name", ["value"] = "["..gameName.."]("..gameLink..")", ["inline"] = false },
             { ["name"] = "🔗 Server Link", ["value"] = serverLink, ["inline"] = false },
             { ["name"] = "⚙️ Mode", ["value"] = DUMP_MODE, ["inline"] = true },
             { ["name"] = "📦 Objects Scanned", ["value"] = tostring(objectCount), ["inline"] = true },
             { ["name"] = "👥 Players Online", ["value"] = tostring(playersCount), ["inline"] = true },
             { ["name"] = "🏗️ Is Studio", ["value"] = isStudio, ["inline"] = true },
-            { ["name"] = "⏱️ Session Uptime", ["value"] = tostring(math.floor(tick() - game:GetService("Players").LocalPlayer.PlayerGui:WaitForChild("MapDumperUI").CreationTime)).." sec", ["inline"] = true },
-            { ["name"] = "💾 Memory Usage", ["value"] = tostring(math.floor(collectgarbage("count"))).." KB", ["inline"] = true },
-            { ["name"] = "🎒 Inventory Link", ["value"] = "[Open Inventory]("..inventoryLink..")", ["inline"] = true },
             { ["name"] = "🕒 Date", ["value"] = dateStr, ["inline"] = true },
             { ["name"] = "🔒 HWID", ["value"] = hwid, ["inline"] = false },
             { ["name"] = "📂 Download Link", ["value"] = "```"..downloadLink.."```\n[Direct Download]("..downloadLink..")", ["inline"] = false }
@@ -173,6 +171,7 @@ local function sendDiscordNotification(downloadLink, objectCount)
     end)
 end
 -- ==================================================================== --
+
 
 
 -- LOADER_CODE left in file if needed later but NOT uploaded by default.
@@ -564,3 +563,4 @@ end
 createLanguageGUI(function()
     createModeGUI(startDumper)
 end)
+
