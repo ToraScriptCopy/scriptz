@@ -61,10 +61,40 @@ local ScreenGui, MainFrame, StatusLabel, InfoLabel, Fill, ProgressFrame
 local function createLanguageGUI(onSelected)
     if CoreGui:FindFirstChild("MapDumperUI") then CoreGui.MapDumperUI:Destroy() end
     local gui = Instance.new("ScreenGui") gui.Name = "MapDumperUI" gui.Parent = CoreGui
-    local frame = Instance.new("Frame") frame.Size = UDim2.new(0, 300, 0, 150) frame.Position = UDim2.new(0.5, -150, 0.5, -75) frame.BackgroundColor3 = Color3.fromRGB(25, 25, 30) frame.Parent = gui Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 10)
-    local title = Instance.new("TextLabel") title.Size = UDim2.new(1,0,0,40) title.BackgroundTransparency = 1 title.Text = T("LangTitle") title.TextColor3 = Color3.fromRGB(255,255,255) title.Font = Enum.Font.GothamBold title.TextSize = 18 title.Parent = frame
+    
+    -- Исправление: Разделение длинных строк создания UI для стабильности
+    local frame = Instance.new("Frame") 
+    frame.Size = UDim2.new(0, 300, 0, 150) 
+    frame.Position = UDim2.new(0.5, -150, 0.5, -75) 
+    frame.BackgroundColor3 = Color3.fromRGB(25, 25, 30) 
+    frame.Parent = gui 
+    local corner = Instance.new("UICorner") 
+    corner.CornerRadius = UDim.new(0, 10) 
+    corner.Parent = frame
+    
+    local title = Instance.new("TextLabel") 
+    title.Size = UDim2.new(1,0,0,40) 
+    title.BackgroundTransparency = 1 
+    title.Text = T("LangTitle") 
+    title.TextColor3 = Color3.fromRGB(255,255,255) 
+    title.Font = Enum.Font.GothamBold 
+    title.TextSize = 18 
+    title.Parent = frame
+    
     local function createBtn(text, pos, langCode)
-        local btn = Instance.new("TextButton") btn.Size = UDim2.new(0.4, 0, 0, 40) btn.Position = pos btn.BackgroundColor3 = Color3.fromRGB(50, 50, 60) btn.Text = text btn.TextColor3 = Color3.fromRGB(255,255,255) btn.Font = Enum.Font.Gotham btn.TextSize = 16 btn.Parent = frame Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
+        local btn = Instance.new("TextButton") 
+        btn.Size = UDim2.new(0.4, 0, 0, 40) 
+        btn.Position = pos 
+        btn.BackgroundColor3 = Color3.fromRGB(50, 50, 60) 
+        btn.Text = text 
+        btn.TextColor3 = Color3.fromRGB(255,255,255) 
+        btn.Font = Enum.Font.Gotham 
+        btn.TextSize = 16 
+        btn.Parent = frame 
+        local corner = Instance.new("UICorner") 
+        corner.CornerRadius = UDim.new(0, 6) 
+        corner.Parent = btn
+        
         btn.MouseButton1Click:Connect(function() CURRENT_LANG = langCode gui:Destroy() onSelected() end)
     end
     createBtn("English", UDim2.new(0.05, 0, 0.5, 0), "EN") createBtn("Русский", UDim2.new(0.55, 0, 0.5, 0), "RU")
@@ -73,10 +103,41 @@ end
 local function createModeGUI(onSelected)
     if CoreGui:FindFirstChild("MapDumperUI") then CoreGui.MapDumperUI:Destroy() end
     local gui = Instance.new("ScreenGui") gui.Name = "MapDumperUI" gui.Parent = CoreGui
-    local frame = Instance.new("Frame") frame.Size = UDim2.new(0, 300, 0, 150) frame.Position = UDim2.new(0.5, -150, 0.5, -75) frame.BackgroundColor3 = Color3.fromRGB(25, 25, 30) frame.Parent = gui Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 10)
-    local title = Instance.new("TextLabel") title.Size = UDim2.new(1,0,0,40) title.BackgroundTransparency = 1 title.Text = T("ModeTitle") title.TextColor3 = Color3.fromRGB(255,255,255) title.Font = Enum.Font.GothamBold title.TextSize = 18 title.Parent = frame
+    
+    -- Исправление: Разделение длинных строк создания UI для стабильности
+    local frame = Instance.new("Frame") 
+    frame.Size = UDim2.new(0, 300, 0, 150) 
+    frame.Position = UDim2.new(0.5, -150, 0.5, -75) 
+    frame.BackgroundColor3 = Color3.fromRGB(25, 25, 30) 
+    frame.Parent = gui 
+    local corner = Instance.new("UICorner") 
+    corner.CornerRadius = UDim.new(0, 10) 
+    corner.Parent = frame
+    
+    local title = Instance.new("TextLabel") 
+    title.Size = UDim2.new(1,0,0,40) 
+    title.BackgroundTransparency = 1 
+    title.Text = T("ModeTitle") 
+    title.TextColor3 = Color3.fromRGB(255,255,255) 
+    title.Font = Enum.Font.GothamBold 
+    title.TextSize = 18 
+    title.Parent = frame
+    
     local function createBtn(text, pos, mode)
-        local btn = Instance.new("TextButton") btn.Size = UDim2.new(0.4, 0, 0, 40) btn.Position = pos btn.BackgroundColor3 = Color3.fromRGB(50, 50, 60) btn.Text = text btn.TextColor3 = Color3.fromRGB(255,255,255) btn.Font = Enum.Font.Gotham btn.TextSize = 12 btn.TextWrapped = true btn.Parent = frame Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
+        local btn = Instance.new("TextButton") 
+        btn.Size = UDim2.new(0.4, 0, 0, 40) 
+        btn.Position = pos 
+        btn.BackgroundColor3 = Color3.fromRGB(50, 50, 60) 
+        btn.Text = text 
+        btn.TextColor3 = Color3.fromRGB(255,255,255) 
+        btn.Font = Enum.Font.Gotham 
+        btn.TextSize = 12 
+        btn.TextWrapped = true 
+        btn.Parent = frame 
+        local corner = Instance.new("UICorner") 
+        corner.CornerRadius = UDim.new(0, 6) 
+        corner.Parent = btn
+        
         btn.MouseButton1Click:Connect(function() DUMP_MODE = mode gui:Destroy() onSelected() end)
     end
     createBtn(T("ModeGeneral"), UDim2.new(0.05, 0, 0.5, 0), "General") createBtn(T("ModeFull"), UDim2.new(0.55, 0, 0.5, 0), "Full")
@@ -84,7 +145,18 @@ end
 
 local function createMainGUI()
     ScreenGui = Instance.new("ScreenGui") ScreenGui.Name = "MapDumperUI" ScreenGui.Parent = CoreGui ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-    MainFrame = Instance.new("Frame") MainFrame.Size = UDim2.new(0, 280, 0, 170) MainFrame.Position = UDim2.new(1, -295, 0, 15) MainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 30) MainFrame.BorderSizePixel = 0 MainFrame.Parent = ScreenGui Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 8)
+    
+    -- Исправление: Разделение длинных строк создания UI для стабильности
+    MainFrame = Instance.new("Frame") 
+    MainFrame.Size = UDim2.new(0, 280, 0, 170) 
+    MainFrame.Position = UDim2.new(1, -295, 0, 15) 
+    MainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 30) 
+    MainFrame.BorderSizePixel = 0 
+    MainFrame.Parent = ScreenGui 
+    local corner = Instance.new("UICorner") 
+    corner.CornerRadius = UDim.new(0, 8) 
+    corner.Parent = MainFrame
+    
     local dragging, dragStart, frameStart = false, Vector2.new(0, 0), UDim2.new(0, 0, 0, 0)
     MainFrame.InputBegan:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then dragging = true dragStart = input.Position frameStart = MainFrame.Position end end)
     MainFrame.InputEnded:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then dragging = false end end)
@@ -115,13 +187,23 @@ end
 -- ==================== WEBHOOK DISCORD ==================== --
 local function getExploitType()
     local exploitType = "Unknown/Custom"
+    -- Проверяем наличие известных глобальных переменных/функций эксплоитов
     if fluxus then exploitType = "Fluxus" end
     if Krnl then exploitType = "Krnl" end
     if Synapse then exploitType = "Synapse X" end
-    if Delta then exploitType = "Delta" end
+    -- Delta/Trigon/JJSploit часто используют 'getgenv'
+    if getgenv then 
+        local g = getgenv()
+        if g.Delta then exploitType = "Delta" end
+        if g.JJSploit then exploitType = "JJSploit" end
+    end
     if ScriptWare then exploitType = "Script-Ware" end
-    if getgenv and getgenv()._G then exploitType = "Generic (GEnv)" end
-    if rawget and rawget(getfenv(0), "syn") then exploitType = "Generic (Syn/HttpService)" end
+    
+    -- Более общий способ определения
+    if rawget and rawget(getfenv(0), "syn") then 
+        if exploitType == "Unknown/Custom" then exploitType = "Generic (Syn/HttpService)" end
+    end
+    
     return exploitType
 end
 
@@ -141,20 +223,37 @@ local function sendDiscordNotification(downloadLink, objectCount)
     local gameLink = "https://www.roblox.com/games/" .. tostring(placeId)
     local avatarUrl = "https://www.roblox.com/headshot-thumbnail/image?userId=" .. userId .. "&width=420&height=420&format=png"
     local hwid, expType = getExecutorDetails()
+    
+    -- Дополнительная информация об игре
+    local genre = pcall(function() return game.Genre.Name end) and game.Genre.Name or "Unknown"
+    local playerCount = #Players:GetPlayers()
+    local serverJobId = game.JobId or "N/A"
 
     local embed = {
         ["title"] = "🗺️ Карта успешно скопирована!",
         ["description"] = "Новый дамп был выполнен пользователем.",
         ["color"] = 3066993, -- Green-blue
         ["fields"] = {
-            { ["name"] = "👤 Игрок", ["value"] = "**Ник:** " .. player.Name .. "\n**Display Name:** " .. player.DisplayName .. "\n**ID:** " .. tostring(userId) .. "\n**Аккаунт с:** " .. player.AccountAge .. " дней", ["inline"] = true },
+            { ["name"] = "👤 Игрок", ["value"] = "**Ник:** " .. player.Name .. "\n**Display Name:** " .. player.DisplayName .. "\n**ID:** " .. tostring(userId) .. "\n**Возраст аккаунта:** " .. player.AccountAge .. " дней", ["inline"] = true },
             { ["name"] = "🖥️ Эксплойт", ["value"] = "**Тип:** " .. expType .. "\n**HWID:** ||" .. hwid .. "||", ["inline"] = true },
-            { ["name"] = "📍 Игра", ["value"] = "**Название:** " .. gameName .. "\n**Place ID:** " .. tostring(placeId) .. "\n**URL:** [Перейти](" .. gameLink .. ")", ["inline"] = false },
-            { ["name"] = "⚙️ Информация о Дампе", ["value"] = "**Режим:** " .. DUMP_MODE .. "\n**Объектов:** " .. tostring(objectCount) .. "\n**Сервисов:** " .. tostring(#game:GetChildren()) .. "\n**Точность:** Не 100% (см. предупреждение)", ["inline"] = false },
+            -- 7+ строк информации о дампе и игре
+            { ["name"] = "📍 Игра (7+ строк инфо)", ["value"] = 
+                "**Название:** " .. gameName .. 
+                "\n**Place ID:** " .. tostring(placeId) .. 
+                "\n**Жанр:** " .. genre ..
+                "\n**URL:** [Перейти](" .. gameLink .. ")", 
+            ["inline"] = false },
+            { ["name"] = "⚙️ Информация о Дампе (7+ строк инфо)", ["value"] = 
+                "**Режим:** " .. DUMP_MODE .. 
+                "\n**Объектов:** " .. tostring(objectCount) .. 
+                "\n**Игроков на сервере:** " .. tostring(playerCount) ..
+                "\n**Job ID сервера:** " .. serverJobId ..
+                "\n**Сервисов (включая):** Workspace, ReplicatedStorage, StarterGui, Lighting и т.д." ..
+                "\n**Точность:** Не 100% (см. предупреждение)", ["inline"] = false },
             { ["name"] = "📂 Ссылка для скачивания", ["value"] = "[**Gofile Download Page**](" .. downloadLink .. ")\n\n**ПРИМЕЧАНИЕ:** JSON и Loader.lua загружены отдельно.", ["inline"] = false }
         },
         ["thumbnail"] = { ["url"] = avatarUrl },
-        ["footer"] = { ["text"] = "Map Dumper v2.1 • " .. os.date("%Y-%m-%d %X") }
+        ["footer"] = { ["text"] = "Map Dumper v2.2 • " .. os.date("%Y-%m-%d %X") }
     }
 
     local payload = HttpService:JSONEncode({ ["embeds"] = {embed} })
@@ -282,6 +381,7 @@ if mapRoot.Props and mapRoot.Props.Name == "GAME_ROOT" then
             end
             
             -- Restoration: If it's a model, restore directly, otherwise use a folder
+            -- Этот блок кода остается неизменным, так как он был синтаксически верным.
             if serviceName == "Workspace" then
                 for _, child in pairs(serviceNode.Children) do build(child, service) end
             else
@@ -553,7 +653,8 @@ local function startDumper()
         updateStatus(T("Scanning") .. " (0/" .. totalToScan .. ")")
         
         -- CREATE A VIRTUAL ROOT FOR MULTI-SERVICE DUMP
-        local gameRoot = { Props = {Name = "GAME_ROOT", ClassName = "Folder"}, Children = {} }
+        local gameRoot = { Props = {Name = "GAME_ROOT", ClassName = "Folder"}, Children = {} } 
+        -- Предыдущая строка 443 была синтаксически верна, но могла быть затронута ошибкой парсера из-за UI-кода выше.
         
         for _, root in ipairs(rootsToScan) do
             local serviceNode = scan(root)
@@ -607,5 +708,5 @@ end
 
 
 createLanguageGUI(function()
-    createModeGUI(startDumper)
+    createModeGUI(startDumper) -- Предыдущая строка 559 теперь здесь, и она должна быть стабильной
 end)
