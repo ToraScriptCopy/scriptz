@@ -175,8 +175,6 @@ end
 -- ==================================================================== --
 
 
-
-
 -- LOADER_CODE left in file if needed later but NOT uploaded by default.
 local LOADER_CODE = [=[ -- not uploaded by default in this version
 -- (kept for reference)
@@ -566,7 +564,3 @@ end
 createLanguageGUI(function()
     createModeGUI(startDumper)
 end)
-
-
-
-
