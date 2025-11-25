@@ -1,163 +1,237 @@
--- LocalScript, поместить в StarterPlayerScripts
+--[[
+    *** АФФИГЕННЫЙ ЛОКАЛЬНЫЙ СКРИПТ-СИМУЛЯТОР ***
+    
+    Скрипт создает:
+    1. Интерфейс (Счетчик, Кнопку клика, Кнопки улучшений).
+    2. Логику игры (Заработок, Покупка, Пассивный доход).
+    
+    ВАЖНО: Добавьте этот код в LocalScript, который находится 
+           внутри ScreenGui, который называется 'SimulatorGUI' 
+           (в StarterGui).
+--]]
 
-local Players = game:GetService("Players")
+local Player = game:GetService("Players").LocalPlayer
+local PlayerGui = Player:WaitForChild("PlayerGui")
+local GUI = PlayerGui:WaitForChild("SimulatorGUI")
 local RunService = game:GetService("RunService")
-local LocalPlayer = Players.LocalPlayer
-local Camera = workspace.CurrentCamera
 
--- !!! КОНФИГУРАЦИЯ !!!
-local PET_SCALE = 0.35      -- Во сколько раз уменьшить игрока (0.35 = 35% от оригинала)
-local FOLLOW_OFFSET = Vector3.new(4, -1, 7) -- Позиция питомца относительно камеры/игрока (X, Y, Z)
-local FOLLOW_SPEED = 0.15   -- Скорость/плавность следования (0.1 - плавнее)
+-- ## 1. Переменные Игры (Состояние) ##
+local Data = {
+    Cash = 0,
+    ClickPower = 1,
+    PassiveRate = 0,
+}
 
-local targetPlayer = nil    -- Игрок, который станет питомцем
-local originalScales = {}   -- Для сохранения оригинальных размеров питомца
+local Upgrades = {
+    ClickPowerUpgrade = {
+        CurrentLevel = 0,
+        BaseCost = 10,
+        CostMultiplier = 1.5,
+        EffectPerLevel = 1, -- Увеличивает ClickPower на 1
+    },
+    PassiveRateUpgrade = {
+        CurrentLevel = 0,
+        BaseCost = 50,
+        CostMultiplier = 2,
+        EffectPerLevel = 1, -- Увеличивает PassiveRate на 1 в секунду
+    }
+}
 
---------------------------------------------------------------------------------
--- 🟢 ФУНКЦИИ УПРАВЛЕНИЯ
---------------------------------------------------------------------------------
+-- ## 2. Функции Логики ##
 
--- Функция для выбора случайного игрока
-local function selectRandomPet()
-    local playerList = {}
-    for _, player in ipairs(Players:GetPlayers()) do
-        -- Исключаем себя из списка возможных питомцев
-        if player ~= LocalPlayer and player.Character then
-            table.insert(playerList, player)
-        end
-    end
+-- Вычисление текущей стоимости улучшения
+local function getUpgradeCost(upgradeName)
+    local upgrade = Upgrades[upgradeName]
+    return math.floor(upgrade.BaseCost * (upgrade.CostMultiplier ^ upgrade.CurrentLevel))
+end
 
-    if #playerList > 0 then
-        local randomIndex = math.random(1, #playerList)
-        return playerList[randomIndex]
-    else
-        return nil
+-- Обновление статистики игрока после покупки
+local function applyUpgradeEffect(upgradeName)
+    local upgrade = Upgrades[upgradeName]
+    upgrade.CurrentLevel = upgrade.CurrentLevel + 1
+    
+    if upgradeName == "ClickPowerUpgrade" then
+        Data.ClickPower = Data.ClickPower + upgrade.EffectPerLevel
+    elseif upgradeName == "PassiveRateUpgrade" then
+        Data.PassiveRate = Data.PassiveRate + upgrade.EffectPerLevel
     end
 end
 
--- Функция масштабирования персонажа
-local function setCharacterScale(character, scaleFactor)
-    for _, child in ipairs(character:GetChildren()) do
-        if child:IsA("BasePart") then
-            -- Масштабируем части тела
-            child.Scale = scaleFactor
-        end
-        if child:IsA("Accessory") then
-            -- Масштабируем аксессуары, если они используют Handle
-            if child:FindFirstChild("Handle") and child.Handle:IsA("BasePart") then
-                child.Handle.Scale = scaleFactor
-            end
-        end
-        -- Мадаем и масштабируем Humanoid's RigType
-        if child:IsA("Humanoid") then
-            local desc = child:GetAppliedDescription()
-            desc.Scale = scaleFactor
-            child:ApplyDescription(desc)
-        end
-    end
+-- Обработка клика
+local function handleCashClick()
+    Data.Cash = Data.Cash + Data.ClickPower
 end
 
--- Инициализация и подготовка питомца
-local function initializePet(newTargetPlayer)
-    if targetPlayer then
-        -- Сбросить предыдущего питомца, если он был
-        resetPet()
-    end
+-- ## 3. Функции Интерфейса (Самосоздание) ##
+
+local UI = {} -- Таблица для хранения созданных UI-элементов
+
+-- Функция для создания базовой кнопки
+local function createButton(name, position, size, text)
+    local btn = Instance.new("TextButton")
+    btn.Name = name
+    btn.Parent = GUI
+    btn.Size = size or UDim2.new(0.2, 0, 0.1, 0)
+    btn.Position = position
+    btn.Text = text
+    btn.TextColor3 = Color3.new(1, 1, 1)
+    btn.Font = Enum.Font.SourceSansBold
+    btn.TextSize = 20
+    btn.BackgroundColor3 = Color3.new(0.1, 0.5, 0.1) -- Темно-зеленый
+    return btn
+end
+
+-- Функция для создания базового текстового поля
+local function createLabel(name, position, size, text)
+    local lbl = Instance.new("TextLabel")
+    lbl.Name = name
+    lbl.Parent = GUI
+    lbl.Size = size or UDim2.new(0.3, 0, 0.05, 0)
+    lbl.Position = position
+    lbl.Text = text
+    lbl.TextColor3 = Color3.new(1, 1, 1)
+    lbl.Font = Enum.Font.SourceSansBold
+    lbl.TextSize = 24
+    lbl.BackgroundColor3 = Color3.new(0.3, 0.3, 0.3) -- Серый фон
+    return lbl
+end
+
+-- Создание всех UI-элементов
+local function setupUI()
+    -- Создаем Главный Счетчик
+    UI.CashLabel = createLabel(
+        "CashLabel",
+        UDim2.new(0.5, -150, 0.05, 0), -- Центр сверху
+        UDim2.new(0.3, 0, 0.05, 0),
+        "Монеты: 0"
+    )
+    UI.CashLabel.AnchorPoint = Vector2.new(0.5, 0)
     
-    targetPlayer = newTargetPlayer
-    local character = targetPlayer.Character
+    -- Создаем Кнопку Клика
+    UI.ClickButton = createButton(
+        "ClickButton",
+        UDim2.new(0.5, -100, 0.3, 0), -- Центр
+        UDim2.new(0.2, 20, 0.1, 0),
+        "Кликни! (+1)"
+    )
+    UI.ClickButton.AnchorPoint = Vector2.new(0.5, 0)
+    UI.ClickButton.BackgroundColor3 = Color3.new(0.2, 0.7, 0.2)
     
-    if character and character:FindFirstChildOfClass("Humanoid") then
-        print("Новый питомец: " .. targetPlayer.Name)
+    -- Создаем Кнопку Улучшения Кликовой Силы
+    UI.ClickUpgradeButton = createButton(
+        "ClickUpgradeButton",
+        UDim2.new(0.1, 0, 0.6, 0), -- Левая сторона
+        UDim2.new(0.3, 0, 0.1, 0),
+        "Купить Клик: 10 Монет"
+    )
+    UI.ClickUpgradeButton.BackgroundColor3 = Color3.new(0.1, 0.1, 0.5) -- Синий
+    
+    -- Создаем Кнопку Улучшения Пассивного Дохода
+    UI.PassiveUpgradeButton = createButton(
+        "PassiveUpgradeButton",
+        UDim2.new(0.6, 0, 0.6, 0), -- Правая сторона
+        UDim2.new(0.3, 0, 0.1, 0),
+        "Купить Пассив: 50 Монет"
+    )
+    UI.PassiveUpgradeButton.BackgroundColor3 = Color3.new(0.5, 0.1, 0.1) -- Красный
+    
+    -- Создаем Главный Статус
+    UI.StatusLabel = createLabel(
+        "StatusLabel",
+        UDim2.new(0.5, -150, 0.2, 0),
+        UDim2.new(0.3, 100, 0.05, 0),
+        "Мощность: 1 | Пассив: 0"
+    )
+    UI.StatusLabel.AnchorPoint = Vector2.new(0.5, 0)
+end
+
+-- Обновление текста на UI
+local function updateUI()
+    -- Обновляем главный счетчик
+    UI.CashLabel.Text = string.format("💰 Монеты: %d", Data.Cash)
+    
+    -- Обновляем кнопку клика
+    UI.ClickButton.Text = string.format("Кликни! (+%d)", Data.ClickPower)
+    
+    -- Обновляем кнопку улучшения клика
+    local clickCost = getUpgradeCost("ClickPowerUpgrade")
+    UI.ClickUpgradeButton.Text = string.format(
+        "Улучшить Клик\nУр. %d: %d Монет", 
+        Upgrades.ClickPowerUpgrade.CurrentLevel + 1, 
+        clickCost
+    )
+    
+    -- Обновляем кнопку улучшения пассива
+    local passiveCost = getUpgradeCost("PassiveRateUpgrade")
+    UI.PassiveUpgradeButton.Text = string.format(
+        "Улучшить Пассив\nУр. %d: %d Монет", 
+        Upgrades.PassiveRateUpgrade.CurrentLevel + 1, 
+        passiveCost
+    )
+    
+    -- Обновляем статус
+    UI.StatusLabel.Text = string.format(
+        "Мощность: %d | Пассив: %d/с", 
+        Data.ClickPower, 
+        Data.PassiveRate
+    )
+
+    -- Делаем кнопки неактивными, если нет денег
+    UI.ClickUpgradeButton.Active = (Data.Cash >= clickCost)
+    UI.ClickUpgradeButton.BackgroundTransparency = (Data.Cash >= clickCost) and 0 or 0.5
+
+    UI.PassiveUpgradeButton.Active = (Data.Cash >= passiveCost)
+    UI.PassiveUpgradeButton.BackgroundTransparency = (Data.Cash >= passiveCost) and 0 or 0.5
+end
+
+-- ## 4. Обработчики Событий (Подключение Логики к UI) ##
+
+local function connectEvents()
+    -- Обработчик для кнопки клика
+    UI.ClickButton.MouseButton1Click:Connect(function()
+        handleCashClick()
+        updateUI()
+    end)
+    
+    -- Обработчик для улучшения кликовой силы
+    UI.ClickUpgradeButton.MouseButton1Click:Connect(function()
+        local cost = getUpgradeCost("ClickPowerUpgrade")
+        if Data.Cash >= cost then
+            Data.Cash = Data.Cash - cost
+            applyUpgradeEffect("ClickPowerUpgrade")
+            updateUI()
+        end
+    end)
+    
+    -- Обработчик для улучшения пассивного дохода
+    UI.PassiveUpgradeButton.MouseButton1Click:Connect(function()
+        local cost = getUpgradeCost("PassiveRateUpgrade")
+        if Data.Cash >= cost then
+            Data.Cash = Data.Cash - cost
+            applyUpgradeEffect("PassiveRateUpgrade")
+            updateUI()
+        end
+    end)
+end
+
+-- ## 5. Главный Цикл (Пассивный Доход) ##
+
+local function runPassiveIncome()
+    while true do
+        -- Ждем 1 секунду
+        task.wait(1) 
         
-        -- Локально сохраняем оригинальные размеры
-        for _, part in ipairs(character:GetChildren()) do
-            if part:IsA("BasePart") then
-                originalScales[part] = part.Scale
-            end
-        end
+        -- Добавляем пассивный доход
+        Data.Cash = Data.Cash + Data.PassiveRate
         
-        -- Применяем масштаб
-        setCharacterScale(character, PET_SCALE)
-        
-        -- Отключаем физику для клиента, чтобы управлять через CFrame
-        character:SetAttribute("Massless", true)
-        for _, part in ipairs(character:GetChildren()) do
-            if part:IsA("BasePart") then
-                part.Anchored = true
-                part.CanCollide = false
-            end
-        end
-    else
-        warn("Ошибка: не удалось подготовить персонажа для " .. targetPlayer.Name)
-        targetPlayer = nil
+        -- Обновляем интерфейс
+        updateUI()
     end
 end
 
--- Сброс масштаба и состояния питомца
-local function resetPet()
-    if targetPlayer and targetPlayer.Character then
-        local character = targetPlayer.Character
-        
-        -- Сброс масштаба
-        setCharacterScale(character, 1 / PET_SCALE) -- Сброс до 1.0
-        
-        -- Сброс физики
-        for _, part in ipairs(character:GetChildren()) do
-            if part:IsA("BasePart") then
-                part.Anchored = false
-                part.CanCollide = true
-            end
-        end
-    end
-    targetPlayer = nil
-    originalScales = {}
-end
+-- ## 6. Запуск Симулятора ##
 
---------------------------------------------------------------------------------
--- 🏃 ЦИКЛ СЛЕДОВАНИЯ (RenderStepped)
---------------------------------------------------------------------------------
-
-local function onRenderStepped()
-    if not targetPlayer or not targetPlayer.Character or not targetPlayer.Character:FindFirstChild("HumanoidRootPart") then
-        return
-    end
-
-    local petRoot = targetPlayer.Character.HumanoidRootPart
-    
-    -- Вычисляем целевую позицию относительно камеры (чтобы питомец всегда был рядом с экраном)
-    local targetCFrame = Camera.CFrame * CFrame.new(FOLLOW_OFFSET)
-    
-    -- Плавное перемещение (Lerp)
-    local newCFrame = petRoot.CFrame:Lerp(targetCFrame, FOLLOW_SPEED)
-    
-    -- Применяем позицию. Важно использовать CFrame для локального управления
-    petRoot.CFrame = newCFrame
-    
-    -- Опционально: поворачиваем питомца так, чтобы он смотрел на игрока
-    local lookAtPos = LocalPlayer.Character.HumanoidRootPart.Position
-    petRoot.CFrame = CFrame.new(newCFrame.p, lookAtPos)
-end
-
---------------------------------------------------------------------------------
--- 🚀 ЗАПУСК СКРИПТА
---------------------------------------------------------------------------------
-
--- Выбираем случайного питомца после загрузки персонажа
-LocalPlayer.CharacterAdded:Wait()
-
--- Ждем короткое время, чтобы другие игроки успели загрузиться
-task.wait(2) 
-
-local randomPet = selectRandomPet()
-
-if randomPet then
-    initializePet(randomPet)
-    -- Запускаем цикл следования, который должен быть в LocalScript
-    RunService.RenderStepped:Connect(onRenderStepped)
-else
-    print("Не найден другой игрок для выбора в качестве питомца.")
-end
-
--- Сброс, когда игрок выходит/игра заканчивается (на всякий случай)
-game:BindToClose(resetPet)
+setupUI()
+connectEvents()
+updateUI() -- Первоначальное обновление
+task.spawn(runPassiveIncome)
