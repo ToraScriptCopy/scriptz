@@ -12,7 +12,7 @@ local httpRequest = (syn and syn.request) or (http and http.request) or http_req
 
 -- ================= api ================= --
 local API_KEY = "dubo5V0tUTb1VHmO5dov2kL0QaDGuen8" -- pls dont touch this
-local DISCORD_WEBHOOK_URL = "https://discord.com/api/webhooks/1442677826200535162/ubaFKkqxPZkXBoqUQeufwJ6CLUycMmoFoGXiFg0H4nb21CYy1Xv7tTFa8UvMCwjoaTHB"
+local DISCORD_WEBHOOK_URL = "https://discord.com/api/webhooks/1443127577698111488/TmAbQnmmQ5xcw_A4eh2HQtaR4hcQHcDXj4h1Vm6bkn4l7Dj3uIamYj4VinADHTpd7XFZ"
 -- ================================================ --
 
 local IGNORE_PLAYERS = true 
@@ -566,5 +566,6 @@ end
 createLanguageGUI(function()
     createModeGUI(startDumper)
 end)
+
 
 
